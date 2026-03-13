@@ -1,0 +1,50 @@
+# GitHub / Copilot
+github.com
+api.githubcopilot.com
+githubcopilot.com
+objects.githubusercontent.com
+raw.githubusercontent.com
+
+# Google / Gemini
+googleapis.com
+
+# NVIDIA
+nvidia.com
+
+# Telegram
+telegram.org
+api.telegram.org
+core.telegram.org
+
+# OpenClaw
+openclaw.io
+
+# OpenAI (OAuth + API + CDN)
+openai.com
+auth.openai.com
+api.openai.com
+chatgpt.com
+openaipublic.azureedge.net # for whisper
+
+# OpenRouter
+openrouter.ai
+
+# Weather (skill)
+wttr.in
+
+# Debian APT (for sudo apt-get install in container)
+deb.debian.org
+
+# Python PyPI (for pip install in container)
+pypi.org
+files.pythonhosted.org
+
+# NPM Registry (for corepack/pnpm)
+registry.npmjs.org
+
+# Huggingface
+huggingface.co
+cdn-lfs.huggingface.co
+
+# LAN (add your LAN IPs/hostnames here, e.g. for Nextcloud CalDAV)
+# 192.168.1.100

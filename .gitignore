@@ -1,0 +1,32 @@
+# Secrets
+.env
+.env.backup
+caddy/caddy.env
+
+# Personal overrides (machine-specific mounts, env vars, etc.)
+docker-compose.override.yml
+
+# TLS certificates (generate your own, see README)
+cert.pem
+key.pem
+certs/
+
+# Persistent agent data (personal configs, memories, workspace files)
+data/
+
+# Default workspace
+workspace/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Legacy / personal notes
+.perm
+comands.md
+README.md.bak

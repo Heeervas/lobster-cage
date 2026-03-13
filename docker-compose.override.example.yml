@@ -1,0 +1,26 @@
+# docker-compose.override.yml – Personal overrides (NOT pushed to git)
+#
+# Copy this file to docker-compose.override.yml and uncomment what you need.
+# Docker Compose automatically merges it with docker-compose.yml.
+# The override file is gitignored — your personal config stays private.
+
+services:
+  openclaw:
+    environment:
+      ## ── Nextcloud CalDAV (optional) ──
+      ## Enables calendar integration. Add your Nextcloud IP to whitelist.txt
+      ## and set TLS_SKIP_VERIFY_HOSTS in .env if using self-signed certs.
+      # - NC_CALDAV_URL=${NC_CALDAV_URL}
+      # - NC_CALDAV_USER=${NC_CALDAV_USER}
+      # - NC_CALDAV_APP_PASSWORD=${NC_CALDAV_APP_PASSWORD}
+
+      ## ── Home Assistant (optional) ──
+      ## Add your HA IP/hostname to whitelist.txt first.
+      # - HA_URL=${HA_URL}
+      # - HA_TOKEN=${HA_TOKEN}
+
+    volumes:
+      ## ── Extra host mounts (optional) ──
+      ## Mount a NAS share, Nextcloud folder, or any host directory.
+      # - /mnt/nas/shared:/home/node/shared:z
+      # - /path/to/thesis:/home/node/thesis:z

@@ -1,0 +1,20 @@
+:{$OPENCLAW_PORT:18789} {
+    tls /certs/cert.pem /certs/key.pem
+
+    route {
+        # Basic Auth for HTTP only (not WebSocket)
+        # WebSocket auth is handled by OpenClaw's device-token system
+        @not_websocket {
+            not header Connection *Upgrade*
+        }
+        basic_auth @not_websocket {
+            {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+        }
+
+        # Reverse proxy to OpenClaw
+        reverse_proxy openclaw:18789 {
+            header_up -Authorization
+            header_up X-Real-IP {remote_host}
+        }
+    }
+}

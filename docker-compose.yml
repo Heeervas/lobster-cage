@@ -1,0 +1,170 @@
+services:
+  # 1. Outbound-Proxy (Tinyproxy) – whitelist-based for API access
+  proxy:
+    image: ghcr.io/querateam/docker-tinyproxy:latest
+    container_name: openclaw_proxy
+    volumes:
+      - ./outbound-proxy/tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
+      - ./outbound-proxy/whitelist.txt:/etc/tinyproxy/whitelist.txt:ro
+    networks:
+      - openclaw_internal
+      - openclaw_external
+    restart: always
+
+  # 2. SearXNG – self-hosted meta search engine
+  searxng:
+    image: searxng/searxng:latest
+    container_name: openclaw_searxng
+    restart: always
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./searxng/limiter.toml:/etc/searxng/limiter.toml:ro
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+    networks:
+      - openclaw_internal
+      - openclaw_external
+
+  # 3. Reader-Proxy – GET-only web page reader (no POST possible)
+  reader:
+    build: ./reader
+    container_name: openclaw_reader
+    restart: always
+    environment:
+      - READER_PORT=3000
+      - READER_TIMEOUT=15
+    networks:
+      - openclaw_internal
+      - openclaw_external
+
+  # 4. DNS-Relay – whitelisted DNS only (blocks DNS exfiltration)
+  dns:
+    image: alpine:3.19
+    container_name: openclaw_dns
+    restart: always
+    volumes:
+      - ./dns/entrypoint.sh:/entrypoint.sh:ro
+      - ./outbound-proxy/whitelist.txt:/etc/dns-whitelist.txt:ro
+    entrypoint: ["sh", "/entrypoint.sh"]
+    networks:
+      openclaw_internal:
+        ipv4_address: 172.28.0.253
+      openclaw_external: {}
+
+  # 5. OpenClaw AI Agent
+  openclaw:
+    build: ./agent
+    container_name: openclaw_agent
+    restart: always
+    dns:
+      - 172.28.0.253
+    depends_on:
+      - proxy
+      - searxng
+      - reader
+      - dns
+    # Container hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Gateway (token auth – browser stores device token after first pairing)
+      - OPENCLAW_GATEWAY_BIND=0.0.0.0
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme}
+      - OPENCLAW_GATEWAY_TRUSTED_PROXIES=127.0.0.1,172.16.0.0/12,192.168.0.0/16,::1
+      - OPENCLAW_GATEWAY_CONTROL_UI_ALLOWED_ORIGINS=https://${LAN_IP:-localhost}:${OPENCLAW_PORT:-18789}
+
+      # Host / Node
+      - HOST=0.0.0.0
+      - NODE_OPTIONS=--dns-result-order=ipv4first --require=/proxy-bootstrap.js
+
+      # Agent
+      - OPENCLAW_AGENT_MAX_CONCURRENT=8
+      - OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT=12
+      - OPENCLAW_AGENT_COMPACTION_MODE=safeguard
+
+      # Outbound proxy (only for whitelisted APIs: Telegram, OpenAI, etc.)
+      - http_proxy=http://proxy:8888
+      - https_proxy=http://proxy:8888
+      - HTTP_PROXY=http://proxy:8888
+      - HTTPS_PROXY=http://proxy:8888
+      - NO_PROXY=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader
+      - no_proxy=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader
+
+      # Web search & reader (internal services – no proxy needed)
+      - SEARXNG_URL=http://searxng:8080
+      - READER_PROXY_URL=http://reader:3000
+
+      # Dummy key: OpenClaw checks if BRAVE_API_KEY is set before calling
+      # web_search. proxy-bootstrap.js intercepts the request and redirects
+      # to SearXNG – no request is ever sent to Brave.
+      - BRAVE_API_KEY=local-searxng-proxy
+
+      # API Keys (from .env)
+      - COPILOT_GITHUB_TOKEN=${COPILOT_GITHUB_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+      # Telegram (optional)
+      - TELEGRAM_ENABLED=${TELEGRAM_BOT_TOKEN:+true}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_DM_POLICY=pairing
+
+      # TLS skip verification for self-signed certs (e.g. local Nextcloud)
+      - TLS_SKIP_VERIFY_HOSTS=${TLS_SKIP_VERIFY_HOSTS}
+    volumes:
+      # Persistent configuration + memories
+      - ./data:/home/node/.openclaw:Z
+      # Workspace
+      - ${OPENCLAW_WORKSPACE_PATH:-./workspace}:/home/node/workspace:z
+      # Extra host mount (optional, e.g. shared NAS folder)
+      # - /path/on/host:/home/node/extra:z
+      # Proxy whitelist (single source of truth – read by proxy-bootstrap.js)
+      - ./outbound-proxy/whitelist.txt:/etc/proxy-whitelist.txt:ro
+      # Proxy bootstrap script (read-only – prevents agent from tampering)
+      - ./agent/proxy-bootstrap.js:/proxy-bootstrap.js:ro
+
+    networks:
+      - openclaw_internal
+    # Security: agent ONLY on internal network – no direct internet access.
+
+  # 6. Inbound HTTPS reverse proxy (Caddy)
+  caddy:
+    image: caddy:alpine
+    container_name: openclaw_caddy
+    restart: always
+    ports:
+      - "${OPENCLAW_PORT:-18789}:${OPENCLAW_PORT:-18789}"
+    env_file:
+      - caddy/caddy.env
+    environment:
+      - CADDY_AUTH_USER=${CADDY_AUTH_USER:-admin}
+      - OPENCLAW_PORT=${OPENCLAW_PORT:-18789}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+    networks:
+      - openclaw_internal
+      - openclaw_external
+    depends_on:
+      - openclaw
+
+networks:
+  openclaw_internal:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+  openclaw_external:
+    driver: bridge
