@@ -5,8 +5,6 @@
 
 set -e
 
-apk add --no-cache dnsmasq >/dev/null 2>&1
-
 WHITELIST="/etc/dns-whitelist.txt"
 CONF="/tmp/dnsmasq-whitelist.conf"
 

@@ -15,6 +15,12 @@ services:
       - openclaw_internal
       - openclaw_external
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8888 || true"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   # 2. SearXNG – self-hosted meta search engine
   searxng:
@@ -34,6 +40,12 @@ services:
     networks:
       - openclaw_internal
       - openclaw_external
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   # 3. Reader-Proxy – GET-only web page reader (no POST possible)
   reader:
@@ -50,20 +62,33 @@ services:
     networks:
       - openclaw_internal
       - openclaw_external
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/health')\""]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   # 4. DNS-Relay – whitelisted DNS only (blocks DNS exfiltration)
   dns:
-    image: alpine:3.19
+    build: ./dns
     container_name: openclaw_dns
     restart: always
     read_only: true
     tmpfs:
       - /tmp
+      - /var/run
     mem_limit: 32m
     volumes:
       - ./dns/entrypoint.sh:/entrypoint.sh:ro
       - ./outbound-proxy/whitelist.txt:/etc/dns-whitelist.txt:ro
     entrypoint: ["sh", "/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "echo test | nc -w1 127.0.0.1 53 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     networks:
       openclaw_internal:
         ipv4_address: 172.28.0.253
@@ -77,16 +102,19 @@ services:
     dns:
       - 172.28.0.253
     depends_on:
-      - proxy
-      - searxng
-      - reader
-      - dns
+      proxy:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
+      reader:
+        condition: service_healthy
+      dns:
+        condition: service_healthy
     # Container hardening
     cap_drop:
       - ALL
     cap_add:
       - CHOWN
-      - DAC_OVERRIDE
       - FOWNER
       - SETGID
       - SETUID
