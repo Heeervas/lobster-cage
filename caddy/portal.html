@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Services — Lobster Cage</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0e17;
+      --card-bg: rgba(16, 20, 32, 0.8);
+      --border: rgba(48, 54, 61, 0.7);
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent-green: #3fb950;
+      --accent-blue: #58a6ff;
+      --accent-purple: #a371f7;
+      --accent-yellow: #d29922;
+      --glow-green: rgba(63, 185, 80, 0.12);
+      --glow-blue: rgba(88, 166, 255, 0.12);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    /* Subtle animated radial gradient background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 40%, rgba(63, 185, 80, 0.05) 0%, transparent 55%),
+        radial-gradient(circle at 80% 60%, rgba(88, 166, 255, 0.04) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 640px;
+      width: 100%;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header .logo { font-size: 48px; display: block; margin-bottom: 12px; }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    h1 span {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 400;
+      display: block;
+      margin-top: 6px;
+      letter-spacing: 0;
+    }
+
+    .services {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .service-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .service-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .service-card.openclaw:hover { box-shadow: 0 0 24px var(--glow-green); border-color: rgba(63, 185, 80, 0.35); }
+    .service-card.clawroute:hover { box-shadow: 0 0 24px var(--glow-blue); border-color: rgba(88, 166, 255, 0.35); }
+
+    .service-icon {
+      font-size: 32px;
+      flex-shrink: 0;
+      width: 48px;
+      text-align: center;
+    }
+
+    .service-info { flex: 1; }
+
+    .service-name {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .service-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .service-path {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .openclaw .service-name { color: var(--accent-green); }
+    .clawroute .service-name { color: var(--accent-blue); }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <header>
+      <span class="logo">🦞</span>
+      <h1>Lobster Cage
+        <span>Available services on this node</span>
+      </h1>
+    </header>
+
+    <div class="services">
+
+      <a href="/openclaw/" class="service-card openclaw">
+        <div class="service-icon">🤖</div>
+        <div class="service-info">
+          <div class="service-name">OpenClaw</div>
+          <div class="service-desc">AI agent interface — chat, tasks, and workspace tools</div>
+        </div>
+        <span class="service-path">/openclaw/</span>
+      </a>
+
+      <a href="/clawroute/dashboard" class="service-card clawroute">
+        <div class="service-icon">🦀</div>
+        <div class="service-info">
+          <div class="service-name">ClawRoute Dashboard</div>
+          <div class="service-desc">LLM cost-routing stats, tier breakdown, and routing controls</div>
+        </div>
+        <span class="service-path">/clawroute/dashboard</span>
+      </a>
+
+    </div>
+
+    <footer>Lobster Cage &mdash; <a href="/" style="color: inherit;">portal</a></footer>
+  </div>
+</body>
+</html>

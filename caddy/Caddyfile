@@ -11,9 +11,7 @@
             {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
         }
 
-        # Bookmark /go to auto-authenticate on every browser session.
-        # The SPA reads #token= from the URL fragment, stores it in
-        # sessionStorage, and connects automatically — no manual paste needed.
+        # Bookmark /go to auto-authenticate on every browser session
         redir /go /#token={$OPENCLAW_GATEWAY_TOKEN} 302
 
         # Reverse proxy to OpenClaw

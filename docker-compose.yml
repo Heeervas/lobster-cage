@@ -175,7 +175,7 @@ services:
       - TLS_SKIP_VERIFY_HOSTS=${TLS_SKIP_VERIFY_HOSTS}
     volumes:
       # Persistent configuration + memories
-      - ./data:/home/node/.openclaw:Z
+      - ${OPENCLAW_DATA_PATH:-./data}:/home/node/.openclaw:Z
       # Workspace
       - ${OPENCLAW_WORKSPACE_PATH:-./workspace}:/home/node/workspace:z
       # Extra host mount (optional, e.g. shared NAS folder)
@@ -235,7 +235,7 @@ services:
       # ollama:
       #   condition: service_healthy
     volumes:
-      - ./clawroute-data:/app/data
+      - ${CLAWROUTE_DATA_PATH:-./clawroute_data}:/app/data
 
   # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
   # ollama:
@@ -296,6 +296,7 @@ services:
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/portal.html:/srv/portal.html:ro
       - ./certs:/certs:ro
     networks:
       - openclaw_internal
