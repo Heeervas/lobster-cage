@@ -18,7 +18,7 @@ server:
 search:
   safe_search: 0
   autocomplete: ""
-  default_lang: "de"
+  default_lang: "es"
   formats:
     - html
     - json

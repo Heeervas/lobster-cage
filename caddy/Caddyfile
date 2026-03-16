@@ -11,10 +11,26 @@
             {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
         }
 
+        # Bookmark /go to auto-authenticate on every browser session.
+        # The SPA reads #token= from the URL fragment, stores it in
+        # sessionStorage, and connects automatically — no manual paste needed.
+        redir /go /#token={$OPENCLAW_GATEWAY_TOKEN} 302
+
         # Reverse proxy to OpenClaw
-        reverse_proxy openclaw:18789 {
+        reverse_proxy http://openclaw:18789 {
             header_up -Authorization
             header_up X-Real-IP {remote_host}
         }
     }
+}
+
+# ClawRoute dashboard
+:{$CLAWROUTE_PORT:18790} {
+    tls /certs/cert.pem /certs/key.pem
+
+    basic_auth {
+        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+    }
+
+    reverse_proxy http://clawroute:18790
 }

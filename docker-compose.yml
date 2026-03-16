@@ -110,6 +110,8 @@ services:
         condition: service_healthy
       dns:
         condition: service_healthy
+      clawroute:
+        condition: service_healthy
     # Container hardening
     cap_drop:
       - ALL
@@ -126,9 +128,9 @@ services:
       - /tmp
     environment:
       # Gateway (token auth – browser stores device token after first pairing)
-      - OPENCLAW_GATEWAY_BIND=0.0.0.0
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-0.0.0.0}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme}
-      - OPENCLAW_GATEWAY_TRUSTED_PROXIES=127.0.0.1,172.16.0.0/12,192.168.0.0/16,::1
+      - OPENCLAW_GATEWAY_TRUSTED_PROXIES=${OPENCLAW_GATEWAY_TRUSTED_PROXIES:-127.0.0.1,172.16.0.0/12,192.168.0.0/16,::1}
       - OPENCLAW_GATEWAY_CONTROL_UI_ALLOWED_ORIGINS=https://${LAN_IP:-localhost}:${OPENCLAW_PORT:-18789}
 
       # Host / Node
@@ -136,17 +138,17 @@ services:
       - NODE_OPTIONS=--dns-result-order=ipv4first --require=/proxy-bootstrap.js
 
       # Agent
-      - OPENCLAW_AGENT_MAX_CONCURRENT=8
-      - OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT=12
-      - OPENCLAW_AGENT_COMPACTION_MODE=safeguard
+      - OPENCLAW_AGENT_MAX_CONCURRENT=${OPENCLAW_AGENT_MAX_CONCURRENT:-8}
+      - OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT=${OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT:-12}
+      - OPENCLAW_AGENT_COMPACTION_MODE=${OPENCLAW_AGENT_COMPACTION_MODE:-safeguard}
 
       # Outbound proxy (only for whitelisted APIs: Telegram, OpenAI, etc.)
       - http_proxy=http://proxy:8888
       - https_proxy=http://proxy:8888
       - HTTP_PROXY=http://proxy:8888
       - HTTPS_PROXY=http://proxy:8888
-      - NO_PROXY=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader
-      - no_proxy=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader
+      - NO_PROXY=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama
+      - no_proxy=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama
 
       # Web search & reader (internal services – no proxy needed)
       - SEARXNG_URL=http://searxng:8080
@@ -167,7 +169,7 @@ services:
       # Telegram (optional)
       - TELEGRAM_ENABLED=${TELEGRAM_BOT_TOKEN:+true}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_DM_POLICY=pairing
+      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY:-pairing}
 
       # TLS skip verification for self-signed certs (e.g. local Nextcloud)
       - TLS_SKIP_VERIFY_HOSTS=${TLS_SKIP_VERIFY_HOSTS}
@@ -187,7 +189,90 @@ services:
       - openclaw_internal
     # Security: agent ONLY on internal network – no direct internet access.
 
-  # 6. Inbound HTTPS reverse proxy (Caddy)
+  # 6. ClawRoute – LLM cost-routing proxy (routes between Ollama and remote APIs)
+  clawroute:
+    build:
+      context: ..
+      dockerfile: lobster-cage/clawroute/Dockerfile
+    container_name: openclaw_clawroute
+    restart: always
+    mem_limit: 512m
+    environment:
+      - CLAWROUTE_HOST=0.0.0.0
+      - CLAWROUTE_PORT=18790
+      - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
+      - CLAWROUTE_TOKEN=${CLAWROUTE_TOKEN}
+      - CLAWROUTE_DEBUG=${CLAWROUTE_DEBUG:-false}
+      - CLAWROUTE_DRY_RUN=${CLAWROUTE_DRY_RUN:-false}
+      - CLAWROUTE_LOG_CONTENT=${CLAWROUTE_LOG_CONTENT:-false}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      # Route remote API calls through Tinyproxy (all API domains are whitelisted)
+      - http_proxy=http://proxy:8888
+      - https_proxy=http://proxy:8888
+      - HTTP_PROXY=http://proxy:8888
+      - HTTPS_PROXY=http://proxy:8888
+      # Ollama and internal services bypass the proxy
+      - NO_PROXY=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
+      - no_proxy=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
+    networks:
+      - openclaw_internal
+      # ClawRoute routes remote API calls through Tinyproxy (http_proxy env vars above).
+      # All required API domains are in outbound-proxy/whitelist.txt.
+      # No direct internet access needed — internal network only.
+    healthcheck:
+      test: ["CMD-SHELL", "cat /proc/net/tcp | grep :4966 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      proxy:
+        condition: service_healthy
+      # ollama:
+      #   condition: service_healthy
+    volumes:
+      - ./clawroute-data:/app/data
+
+  # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
+  # ollama:
+  #   image: alpine/ollama:latest
+  #   container_name: openclaw_ollama
+  #   restart: always
+  #   mem_limit: 4g
+  #   cap_drop:
+  #     - ALL
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   environment:
+  #     # Route model downloads through Tinyproxy (registry.ollama.ai is whitelisted)
+  #     - http_proxy=http://proxy:8888
+  #     - https_proxy=http://proxy:8888
+  #     - HTTP_PROXY=http://proxy:8888
+  #     - HTTPS_PROXY=http://proxy:8888
+  #     - NO_PROXY=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
+  #     - no_proxy=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
+  #     # Bind to all interfaces so other containers (ClawRoute) can reach Ollama.
+  #     - OLLAMA_HOST=0.0.0.0:11434
+  #     # Default context window hint — the authoritative num_ctx is baked into the
+  #     # model's Modelfile (see swap-ollama-model.sh). This env var is a fallback
+  #     # for Ollama's native API path only; the OpenAI-compat endpoint ignores it.
+  #     - OLLAMA_NUM_CTX=16384
+  #   volumes:
+  #     - ollama:/root/.ollama
+  #   networks:
+  #     - openclaw_internal
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "cat /proc/net/tcp* | grep -i :2CAA >/dev/null || exit 1"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
+
+  # 8. Inbound HTTPS reverse proxy (Caddy)
   caddy:
     image: caddy:alpine
     container_name: openclaw_caddy
@@ -201,11 +286,14 @@ services:
     mem_limit: 64m
     ports:
       - "${OPENCLAW_PORT:-18789}:${OPENCLAW_PORT:-18789}"
+      - "${CLAWROUTE_PORT:-18790}:${CLAWROUTE_PORT:-18790}"
     env_file:
       - caddy/caddy.env
     environment:
       - CADDY_AUTH_USER=${CADDY_AUTH_USER:-admin}
       - OPENCLAW_PORT=${OPENCLAW_PORT:-18789}
+      - CLAWROUTE_PORT=${CLAWROUTE_PORT:-18790}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./certs:/certs:ro
@@ -224,3 +312,7 @@ networks:
         - subnet: 172.28.0.0/24
   openclaw_external:
     driver: bridge
+
+# volumes:
+#   ollama:
+#     external: true

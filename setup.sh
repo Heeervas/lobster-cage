@@ -48,31 +48,11 @@ else
         -subj "/CN=$LAN_IP" \
         -addext "subjectAltName=IP:$LAN_IP" \
         2>/dev/null
-    info "Certificate generated: $CERT_DIR/cert.pem"
+    chmod 600 "$CERT_DIR/key.pem"
+    info "Certificate generated: $CERT_DIR/cert.pem (key permissions restricted)"
 fi
 
-# ── 4. Hash Caddy password (bcrypt) ──
-CADDY_AUTH_PASSWORD="${CADDY_AUTH_PASSWORD:-changeme}"
-if [ "$CADDY_AUTH_PASSWORD" = "changeme" ] || [ "$CADDY_AUTH_PASSWORD" = "change-me-please" ]; then
-    warn "CADDY_AUTH_PASSWORD is still the default – please change it in .env!"
-fi
-
-# Generate bcrypt hash using Docker (caddy image has the hash-password command)
-info "Generating bcrypt hash for Caddy basic auth..."
-BCRYPT_HASH=$(docker run --rm caddy:alpine caddy hash-password --plaintext "$CADDY_AUTH_PASSWORD" 2>/dev/null)
-
-if [ -n "$BCRYPT_HASH" ]; then
-    # Write hash to caddy/caddy.env (escape $ as $$ for Docker Compose)
-    ESCAPED_HASH=$(echo "$BCRYPT_HASH" | sed 's/\$/\$\$/g')
-    mkdir -p caddy
-    echo "CADDY_AUTH_HASH=$ESCAPED_HASH" > caddy/caddy.env
-    info "Bcrypt hash generated and saved to caddy/caddy.env"
-else
-    error "Failed to generate bcrypt hash. Make sure Docker is running."
-    exit 1
-fi
-
-# ── 5. Create workspace directory ──
+# ── 4. Create workspace directory ──
 WORKSPACE="${OPENCLAW_WORKSPACE_PATH:-./workspace}"
 if [ ! -d "$WORKSPACE" ]; then
     mkdir -p "$WORKSPACE"
@@ -81,12 +61,44 @@ else
     info "Workspace directory exists: $WORKSPACE"
 fi
 
-# ── 6. Create data directory ──
+# ── 5. Create data directory ──
 if [ ! -d "./data" ]; then
     mkdir -p ./data
     info "Created data directory"
 else
     info "Data directory exists"
+fi
+
+# ── 6. Hash Caddy password (bcrypt) ──
+CADDY_AUTH_PASSWORD="${CADDY_AUTH_PASSWORD:-changeme}"
+if [ "$CADDY_AUTH_PASSWORD" = "changeme" ] || [ "$CADDY_AUTH_PASSWORD" = "change-me-please" ]; then
+    error "CADDY_AUTH_PASSWORD must be changed in .env from the default value!"
+    exit 1
+fi
+
+# Generate bcrypt hash using Docker (caddy image has the hash-password command)
+info "Generating bcrypt hash for Caddy basic auth..."
+BCRYPT_HASH=$(docker run --rm caddy:alpine caddy hash-password --plaintext "$CADDY_AUTH_PASSWORD" 2>/dev/null) || true
+
+if [ -n "$BCRYPT_HASH" ]; then
+    # Write hash to caddy/caddy.env (escape $ as $$ for Docker Compose)
+    ESCAPED_HASH=$(echo "$BCRYPT_HASH" | sed 's/\$/\$\$/g')
+    mkdir -p caddy
+    echo "CADDY_AUTH_HASH=$ESCAPED_HASH" > caddy/caddy.env
+    chmod 600 caddy/caddy.env
+    info "Bcrypt hash generated and saved to caddy/caddy.env (permissions restricted)"
+else
+    error "Failed to generate bcrypt hash. Make sure Docker is running."
+    exit 1
+fi
+
+# ── 7. Ensure Ollama named volume exists ──
+# docker-compose uses external: true so the volume must exist before `docker compose up`.
+if docker volume inspect ollama >/dev/null 2>&1; then
+    info "Docker volume 'ollama' already exists"
+else
+    docker volume create ollama >/dev/null
+    info "Created Docker volume 'ollama' for Ollama model storage"
 fi
 
 # ── Done ──

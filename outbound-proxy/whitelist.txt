@@ -19,6 +19,9 @@ core.telegram.org
 # OpenClaw
 openclaw.io
 
+# Anthropic
+api.anthropic.com
+
 # OpenAI (OAuth + API + CDN)
 openai.com
 auth.openai.com
@@ -28,6 +31,9 @@ openaipublic.azureedge.net # for whisper
 
 # OpenRouter
 openrouter.ai
+
+# DeepSeek
+api.deepseek.com
 
 # Weather (skill)
 wttr.in
@@ -42,9 +48,31 @@ files.pythonhosted.org
 # NPM Registry (for corepack/pnpm)
 registry.npmjs.org
 
+# Ollama model registry (for model pulls)
+registry.ollama.ai
+
+# Ollama model registry (for ollama pull)
+registry.ollama.ai
+cdn.ollama.ai
+ollama.ai
+ollama.com
+# Ollama model blobs are served from dynamic R2 subdomains (*.r2.cloudflarestorage.com)
+r2.cloudflarestorage.com
+
 # Huggingface
 huggingface.co
 cdn-lfs.huggingface.co
 
 # LAN (add your LAN IPs/hostnames here, e.g. for Nextcloud CalDAV)
 # 192.168.1.100
+
+google.com
+discord.com
+docs.openclaw.ai
+openclaw.ai
+api.search.brave.com
+amazon.com
+brave.com
+microsoft.com
+apple.com
+cloudflare.com

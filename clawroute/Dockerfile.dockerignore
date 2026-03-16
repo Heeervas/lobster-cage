@@ -1,0 +1,10 @@
+.env
+.env.*
+*.test.ts
+*.spec.ts
+coverage/
+node_modules/
+.git/
+.github/
+*.md
+.npmrc

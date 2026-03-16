@@ -30,3 +30,5 @@ Thumbs.db
 .perm
 comands.md
 README.md.bak
+clawroute-data/clawroute.db
+outbound-proxy/whitelist.txt

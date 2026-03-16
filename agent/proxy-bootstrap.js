@@ -243,5 +243,104 @@ if (process.env.HTTPS_PROXY || process.env.HTTP_PROXY) {
       }
       return _origFetch(resource, init);
     };
+
+    // ── 6. Also patch https.request for non-fetch clients (axios, node-fetch v2) ──
+    // Some tools bypass globalThis.fetch and use the native https module directly.
+    // This intercept ensures api.search.brave.com is always redirected to SearXNG
+    // regardless of which HTTP library the agent uses.
+    const { PassThrough: _PT } = require('stream');
+    const _httpsModule = require('https');
+    const _origHttpsRequest = _httpsModule.request.bind(_httpsModule);
+
+    function _makeBraveFakeReq(query, count, lang) {
+      const fakeReq = new _PT();
+      fakeReq.end = function () { return this; };
+      fakeReq.setTimeout = function () { return this; };
+      fakeReq.abort = function () {};
+      fakeReq.destroy = function () {};
+      fakeReq.setHeader = function () { return this; };
+      fakeReq.getHeader = function () { return undefined; };
+      fakeReq.write = function () { return true; };
+      fakeReq.flushHeaders = function () {};
+
+      const searxUrl = new URL(`${SEARXNG_URL}/search`);
+      searxUrl.searchParams.set('q', query);
+      searxUrl.searchParams.set('format', 'json');
+      if (lang) searxUrl.searchParams.set('language', lang);
+
+      process.nextTick(() => {
+        _origFetch(searxUrl.toString())
+          .then(r => r.json())
+          .then(data => {
+            const results = (data.results || []).slice(0, count).map(r => ({
+              title: r.title || '',
+              url: r.url || '',
+              description: r.content || '',
+              age: r.publishedDate || undefined,
+            }));
+            const body = JSON.stringify({ web: { results } });
+            const fakeRes = new _PT();
+            fakeRes.statusCode = 200;
+            fakeRes.statusMessage = 'OK';
+            fakeRes.headers = { 'content-type': 'application/json' };
+            fakeReq.emit('response', fakeRes);
+            fakeRes.push(body);
+            fakeRes.push(null);
+          })
+          .catch(err => {
+            const body = JSON.stringify({ error: err.message });
+            const fakeRes = new _PT();
+            fakeRes.statusCode = 502;
+            fakeRes.statusMessage = 'Bad Gateway';
+            fakeRes.headers = { 'content-type': 'application/json' };
+            fakeReq.emit('response', fakeRes);
+            fakeRes.push(body);
+            fakeRes.push(null);
+          });
+      });
+
+      return fakeReq;
+    }
+
+    function _httpsRequestInterceptor(options, callback) {
+      let hostname = '';
+      let searchStr = '';
+
+      if (typeof options === 'string') {
+        try {
+          const _u = new URL(options);
+          hostname = _u.hostname;
+          searchStr = _u.search.slice(1);
+        } catch (_) {}
+      } else if (options instanceof URL) {
+        hostname = options.hostname;
+        searchStr = options.search.slice(1);
+      } else if (options && typeof options === 'object') {
+        hostname = (options.hostname || (options.host || '').split(':')[0] || '');
+        searchStr = ((options.path || '').split('?')[1]) || '';
+      }
+
+      if (hostname !== 'api.search.brave.com') {
+        return _origHttpsRequest(options, callback);
+      }
+
+      const _sp = new URLSearchParams(searchStr);
+      const query = _sp.get('q') || '';
+      const count = parseInt(_sp.get('count') || '5', 10);
+      const lang = _sp.get('search_lang') || _sp.get('ui_lang') || '';
+
+      auditLog('SEARCH(req)', 'GET', `q="${query.slice(0, 100)}"`, `(${query.length} chars)`);
+
+      const fakeReq = _makeBraveFakeReq(query, count, lang);
+      if (callback) fakeReq.once('response', callback);
+      return fakeReq;
+    }
+
+    _httpsModule.request = _httpsRequestInterceptor;
+    _httpsModule.get = function _httpsGetInterceptor(options, callback) {
+      const req = _httpsRequestInterceptor(options, callback);
+      req.end();
+      return req;
+    };
   }
 }
