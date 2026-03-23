@@ -50,14 +50,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # --- TLS / Certs ---
     ca-certificates \
     openssl \
-    && rm -rf /var/lib/apt/lists/*
+    #Finish and cleanup
+    && rm -rf /var/lib/apt/lists/* 
+    
 
 # Persist APT proxy so runtime builds inside the container use the outbound proxy
 RUN echo 'Acquire::http::Proxy "http://proxy:8888";' > /etc/apt/apt.conf.d/99proxy \
     && echo 'Acquire::https::Proxy "http://proxy:8888";' >> /etc/apt/apt.conf.d/99proxy
 
+# Install gogcli (Google CLI — Gmail, Calendar, Drive, Docs, Sheets, etc.)
+# https://github.com/steipete/gogcli
+RUN set -eux; \
+    GOGCLI_VERSION="0.12.0"; \
+    ARCH="$(dpkg --print-architecture)"; \
+    curl -fsSL "https://github.com/steipete/gogcli/releases/download/v${GOGCLI_VERSION}/gogcli_${GOGCLI_VERSION}_linux_${ARCH}.tar.gz" \
+        | tar xz -C /usr/local/bin gog; \
+    chmod +x /usr/local/bin/gog
+
 # Persist pip proxy
-RUN mkdir -p /home/node/.config/pip \
+RUN mkdir -p /home/node/.config/pip /home/node/.config/gogcli \
     && printf '[global]\nproxy = http://proxy:8888\n' > /home/node/.config/pip/pip.conf \
     && chown -R node:node /home/node/.config
 

@@ -173,9 +173,19 @@ services:
 
       # TLS skip verification for self-signed certs (e.g. local Nextcloud)
       - TLS_SKIP_VERIFY_HOSTS=${TLS_SKIP_VERIFY_HOSTS}
+
+      # gogcli (gog) — headless keyring (no OS keychain in container)
+      - GOG_KEYRING_BACKEND=file
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD:-}
+
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}
+      - GITHUB_EMAIL=${GITHUB_EMAIL}
     volumes:
       # Persistent configuration + memories
       - ${OPENCLAW_DATA_PATH:-./data}:/home/node/.openclaw:Z
+      # gogcli credentials + config (persisted across restarts)
+      - ${OPENCLAW_DATA_PATH:-./data}/gogcli:/home/node/.config/gogcli:Z
       # Workspace
       - ${OPENCLAW_WORKSPACE_PATH:-./workspace}:/home/node/workspace:z
       # Extra host mount (optional, e.g. shared NAS folder)
@@ -200,14 +210,17 @@ services:
     environment:
       - CLAWROUTE_HOST=0.0.0.0
       - CLAWROUTE_PORT=18790
+      - CLAWROUTE_BASELINE_MODEL=${CLAWROUTE_BASELINE_MODEL:-openrouter/anthropic/claude-sonnet-4.6}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
       - CLAWROUTE_TOKEN=${CLAWROUTE_TOKEN}
       - CLAWROUTE_DEBUG=${CLAWROUTE_DEBUG:-false}
       - CLAWROUTE_DRY_RUN=${CLAWROUTE_DRY_RUN:-false}
       - CLAWROUTE_LOG_CONTENT=${CLAWROUTE_LOG_CONTENT:-false}
+      - CLAWROUTE_PROVIDER=${CLAWROUTE_PROVIDER:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_CODEX_AUTH_PATH=${OPENAI_CODEX_AUTH_PATH:-/app/codex-auth.json}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       # Route remote API calls through Tinyproxy (all API domains are whitelisted)
@@ -236,6 +249,10 @@ services:
       #   condition: service_healthy
     volumes:
       - ${CLAWROUTE_DATA_PATH:-./clawroute_data}:/app/data
+      # Mount host codex auth.json for subscription access (read-only).
+      # ClawRoute reads this at startup to get the OAuth token.
+      # After `codex login` refreshes the file, just `docker compose restart clawroute`.
+      - ${HOME}/.codex/auth.json:/app/codex-auth.json:ro
 
   # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
   # ollama:
