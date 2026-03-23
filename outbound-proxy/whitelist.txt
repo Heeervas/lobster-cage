@@ -1,78 +1,341 @@
 # GitHub / Copilot
-github.com
-api.githubcopilot.com
-githubcopilot.com
-objects.githubusercontent.com
-raw.githubusercontent.com
+github\.com
+api\.githubcopilot\.com
+githubcopilot\.com
+objects\.githubusercontent\.com
+raw\.githubusercontent\.com
+gitlab\.com
+api\.gitlab\.com
+bitbucket\.org
+api\.bitbucket\.org
 
 # Google / Gemini
-googleapis.com
+googleapis\.com
 
 # NVIDIA
-nvidia.com
+nvidia\.com
 
 # Telegram
-telegram.org
-api.telegram.org
-core.telegram.org
+telegram\.org
+api\.telegram\.org
+core\.telegram\.org
 
 # OpenClaw
-openclaw.io
+openclaw\.io
+docs\.openclaw\.ai
+clawhub\.ai
 
 # Anthropic
-api.anthropic.com
+api\.anthropic\.com
 
 # OpenAI (OAuth + API + CDN)
-openai.com
-auth.openai.com
-api.openai.com
-chatgpt.com
-openaipublic.azureedge.net # for whisper
+openai\.com
+auth\.openai\.com
+api\.openai\.com
+chatgpt\.com
+openaipublic\.azureedge\.net # for whisper
 
 # OpenRouter
-openrouter.ai
+openrouter\.ai
 
 # DeepSeek
-api.deepseek.com
+api\.deepseek\.com
+
+# AI / LLM Services (additional providers)
+cohere\.com
+groq\.com
+together\.ai
+replicate\.com
+perplexity\.ai
+
+# ML Ops & Compute
+wandb\.ai
+modal\.com
+kaggle\.com
 
 # Weather (skill)
-wttr.in
+wttr\.in
 
 # Debian APT (for sudo apt-get install in container)
-deb.debian.org
+deb\.debian\.org
 
 # Python PyPI (for pip install in container)
-pypi.org
-files.pythonhosted.org
+pypi\.org
+files\.pythonhosted\.org
 
 # NPM Registry (for corepack/pnpm)
-registry.npmjs.org
-
-# Ollama model registry (for model pulls)
-registry.ollama.ai
+registry\.npmjs\.org
 
 # Ollama model registry (for ollama pull)
-registry.ollama.ai
-cdn.ollama.ai
-ollama.ai
-ollama.com
+registry\.ollama\.ai
+cdn\.ollama\.ai
+ollama\.ai
+ollama\.com
 # Ollama model blobs are served from dynamic R2 subdomains (*.r2.cloudflarestorage.com)
-r2.cloudflarestorage.com
+r2\.cloudflarestorage\.com
 
 # Huggingface
-huggingface.co
-cdn-lfs.huggingface.co
+huggingface\.co
+cdn-lfs\.huggingface\.co
 
-# LAN (add your LAN IPs/hostnames here, e.g. for Nextcloud CalDAV)
-# 192.168.1.100
+# Bookmarks & Note-taking
+raindrop\.io
+app\.raindrop\.io
+api\.raindrop\.io
+notion\.so
+notion\.com
+api\.notion\.com
+obsidian\.md
 
-google.com
-discord.com
-docs.openclaw.ai
-openclaw.ai
-api.search.brave.com
-amazon.com
-brave.com
-microsoft.com
-apple.com
-cloudflare.com
+# Project Management & Collaboration
+linear\.app
+jira\.com
+atlassian\.com
+trello\.com
+asana\.com
+monday\.com
+shortcut\.io
+
+# Design & Creative Tools
+figma\.com
+api\.figma\.com
+adobe\.com
+canva\.com
+thefork\.com
+miro\.com
+excalidraw\.com
+lucidchart\.com
+draw\.io
+
+# Productivity & Office
+slack\.com
+api\.slack\.com
+teams\.microsoft\.com
+zoom\.us
+loom\.com
+calendly\.com
+
+# Data & Analytics
+datadog\.com
+sentry\.io
+newrelic\.com
+mixpanel\.com
+amplitude\.com
+similarweb\.com
+semrush\.com
+ahrefs\.com
+
+# Cloud & Deployment
+vercel\.com
+netlify\.com
+railway\.app
+render\.com
+fly\.io
+heroku\.com
+digitalocean\.com
+linode\.com
+vultr\.com
+aws\.amazon\.com
+gcp\.google\.com
+console\.cloud\.google\.com
+
+# Databases & Backend
+firebase\.com
+firebaseio\.com
+supabase\.io
+api\.supabase\.co
+mongodb\.com
+cloud\.mongodb\.com
+planetscale\.com
+appwrite\.io
+sanity\.io
+
+# Automation & Integration
+zapier\.com
+make\.com
+ifttt\.com
+n8n\.io
+webhooks\.com
+automation-anywhere\.com
+
+# Payments & Commerce
+stripe\.com
+api\.stripe\.com
+braintreepayments\.com
+paypal\.com
+square\.com
+gumroad\.com
+lemonsqueezy\.com
+
+# Communication & Notifications
+sendgrid\.com
+mailgun\.com
+ses\.amazonaws\.com
+twilio\.com
+vonage\.com
+
+# Monitoring & Alerts
+opsgenie\.com
+pagerduty\.com
+statuspage\.io
+incident\.io
+app\.opsgenie\.com
+
+# Product & Business Intelligence
+producthunt\.com
+angellist\.com
+crunchbase\.com
+g2\.com
+capterra\.com
+
+# Third-party integrations (broad access required)
+google\.com
+discord\.com
+api\.search\.brave\.com
+amazon\.com
+brave\.com
+microsoft\.com
+apple\.com
+cloudflare\.com
+
+# Utilities
+www\.canirun\.ai
+
+# ──────────────────────────────────────────────────────────
+# NOTICIAS — INGLÉS
+# ──────────────────────────────────────────────────────────
+reuters\.com
+apnews\.com                       # AP — fuente primaria, sin sesgo
+bbc\.com
+bbc\.co\.uk
+theguardian\.com
+bloomberg\.com
+techcrunch\.com
+arstechnica\.com
+wired\.com
+thenextweb\.com
+venturebeat\.com
+zdnet\.com
+theregister\.com
+hacker-news\.firebaseio\.com       # HN API (JSON, sin JS)
+news\.ycombinator\.com
+
+# ──────────────────────────────────────────────────────────
+# NOTICIAS — ESPAÑOL
+# ──────────────────────────────────────────────────────────
+elpais\.com
+elmundo\.es
+lavanguardia\.com
+abc\.es
+expansion\.com
+xataka\.com
+genbeta\.com
+hipertextual\.com
+muycomputer\.com
+elconfidencial\.com
+publico\.es
+20minutos\.es
+
+# ──────────────────────────────────────────────────────────
+# NOTICIAS — LATAM
+# ──────────────────────────────────────────────────────────
+infobae\.com
+clarin\.com
+lanacion\.com\.ar
+eluniversal\.com\.mx
+milenio\.com
+
+# ──────────────────────────────────────────────────────────
+# AGREGADORES / RSS
+# ──────────────────────────────────────────────────────────
+feedly\.com
+cloud\.feedly\.com
+newsapi\.org                      # API de noticias estructurada
+gnews\.io                         # Alternativa a NewsAPI
+ground\.news
+
+# ──────────────────────────────────────────────────────────
+# FOROS Y COMUNIDADES
+# ──────────────────────────────────────────────────────────
+reddit\.com
+old\.reddit\.com
+www\.reddit\.com
+oauth\.reddit\.com                 # API Reddit (requiere auth)
+reddit-uploaded-media\.s3-accelerate\.amazonaws\.com
+hackernews\.com
+lobste\.rs                        # Foro tech, muy limpio
+dev\.to
+hashnode\.com
+tildes\.net                       # Foro alternativo a Reddit, moderado
+
+# ──────────────────────────────────────────────────────────
+# STACKOVERFLOW / STACKEXCHANGE (ya estaba, completar)
+# ──────────────────────────────────────────────────────────
+stackoverflow\.com
+stackexchange\.com
+superuser\.com
+askubuntu\.com
+unix\.stackexchange\.com
+security\.stackexchange\.com
+serverfault\.com
+cdn\.sstatic\.net                  # CDN de Stack (avatares, JS)
+
+# ──────────────────────────────────────────────────────────
+# DOCUMENTACIÓN TÉCNICA (agente de código)
+# ──────────────────────────────────────────────────────────
+developer\.mozilla\.org
+docs\.python\.org
+docs\.docker\.com
+docs\.github\.com
+kubernetes\.io
+docs\.ansible\.com
+terraform\.io
+registry\.terraform\.io
+docs\.aws\.amazon\.com
+learn\.microsoft\.com
+cloud\.google\.com
+pkg\.go\.dev
+docs\.rs                          # Documentación Rust
+readthedocs\.io
+readthedocs\.org
+rtfd\.io
+
+# ──────────────────────────────────────────────────────────
+# PAPERS / INVESTIGACIÓN CIENTÍFICA
+# ──────────────────────────────────────────────────────────
+arxiv\.org
+export\.arxiv\.org                 # API de arXiv
+scholar\.google\.com
+semanticscholar\.org
+api\.semanticscholar\.org
+pubmed\.ncbi\.nlm\.nih\.gov
+ncbi\.nlm\.nih\.gov
+researchgate\.net
+ssrn\.com
+
+# ──────────────────────────────────────────────────────────
+# DATOS ABIERTOS
+# ──────────────────────────────────────────────────────────
+data\.worldbank\.org
+api\.worldbank\.org
+ourworldindata\.org
+statista\.com
+data\.europa\.eu
+datos\.gob\.es
+ine\.es                           # INE España
+
+# ──────────────────────────────────────────────────────────
+# WAYBACK / ARCHIVO
+# ──────────────────────────────────────────────────────────
+archive\.org
+web\.archive\.org
+timetravel\.mementoweb\.org        # API para versiones históricas
+
+# ──────────────────────────────────────────────────────────
+# SOCIAL MEDIA & UTILITIES
+# ──────────────────────────────────────────────────────────
+x\.com
+youtu\.be
+open-meteo\.com
+www\.googleapis\.com               # YouTube Data API v3
+youtube\.com
