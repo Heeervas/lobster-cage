@@ -138,6 +138,9 @@ services:
       # Host / Node
       - HOST=0.0.0.0
       - NODE_OPTIONS=--dns-result-order=ipv4first --require=/proxy-bootstrap.js
+      - NODE_COMPILE_CACHE=/var/tmp/openclaw-compile-cache
+      # Avoid self-respawn overhead — Docker restart: always handles restarts
+      - OPENCLAW_NO_RESPAWN=1
 
       # Agent
       - OPENCLAW_AGENT_MAX_CONCURRENT=${OPENCLAW_AGENT_MAX_CONCURRENT:-8}
@@ -238,6 +241,9 @@ services:
       - no_proxy=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader,browserless
     networks:
       - openclaw_internal
+      # ClawRoute routes remote API calls through Tinyproxy (http_proxy env vars above).
+      # All required API domains are in outbound-proxy/whitelist.txt.
+      # No direct internet access needed — internal network only.
     healthcheck:
       test: ["CMD-SHELL", "cat /proc/net/tcp | grep :4966 >/dev/null || exit 1"]
       interval: 10s
@@ -247,8 +253,13 @@ services:
     depends_on:
       proxy:
         condition: service_healthy
+      # ollama:
+      #   condition: service_healthy
     volumes:
       - ${CLAWROUTE_DATA_PATH:-./clawroute_data}:/app/data
+      # Mount host codex auth.json for subscription access (read-only).
+      # ClawRoute reads this at startup to get the OAuth token.
+      # After `codex login` refreshes the file, just `docker compose restart clawroute`.
       - ${HOME}/.codex/auth.json:/app/codex-auth.json:ro
 
   # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
@@ -262,13 +273,18 @@ services:
   #   security_opt:
   #     - no-new-privileges:true
   #   environment:
+  #     # Route model downloads through Tinyproxy (registry.ollama.ai is whitelisted)
   #     - http_proxy=http://proxy:8888
   #     - https_proxy=http://proxy:8888
   #     - HTTP_PROXY=http://proxy:8888
   #     - HTTPS_PROXY=http://proxy:8888
   #     - NO_PROXY=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
   #     - no_proxy=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
+  #     # Bind to all interfaces so other containers (ClawRoute) can reach Ollama.
   #     - OLLAMA_HOST=0.0.0.0:11434
+  #     # Default context window hint — the authoritative num_ctx is baked into the
+  #     # model's Modelfile (see swap-ollama-model.sh). This env var is a fallback
+  #     # for Ollama's native API path only; the OpenAI-compat endpoint ignores it.
   #     - OLLAMA_NUM_CTX=16384
   #   volumes:
   #     - ollama:/root/.ollama
@@ -301,10 +317,13 @@ services:
     dns:
       - 172.28.0.253
     environment:
+      # Browserless UI behavior
       - ENABLE_DEBUGGER=true
       - SCREEN_WIDTH=1280
       - SCREEN_HEIGHT=720
+      # Chromium proxy flag — routes ALL browser traffic through Tinyproxy whitelist
       - DEFAULT_LAUNCH_ARGS=--proxy-server=http://proxy:8888 --disable-crash-reporter --no-crashpad
+      # Standard proxy env vars (container-level HTTP, e.g. healthchecks)
       - http_proxy=http://proxy:8888
       - https_proxy=http://proxy:8888
       - HTTP_PROXY=http://proxy:8888
@@ -313,6 +332,8 @@ services:
       - no_proxy=localhost,127.0.0.1,::1,browserless,openclaw,proxy,caddy,searxng,reader,clawroute
     networks:
       - openclaw_internal
+    # Security: browserless ONLY on internal network — no direct internet.
+    # Whitelisted DNS relay (172.28.0.253) + Tinyproxy (proxy:8888) enforce access control.
     depends_on:
       proxy:
         condition: service_healthy
