@@ -132,7 +132,8 @@ services:
       # Gateway (token auth – browser stores device token after first pairing)
       - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-0.0.0.0}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme}
-      - OPENCLAW_GATEWAY_TRUSTED_PROXIES=${OPENCLAW_GATEWAY_TRUSTED_PROXIES:-127.0.0.1,172.16.0.0/12,172.28.0.0/16,192.168.0.0/16,::1}
+      # NOTE: trustedProxies is set via config.patch.json (gateway.trustedProxies array).
+      # OPENCLAW_GATEWAY_TRUSTED_PROXIES is not read by v2026.4.5+ — removed to avoid confusion.
       - OPENCLAW_GATEWAY_CONTROL_UI_ALLOWED_ORIGINS=https://${LAN_IP:-localhost}:${OPENCLAW_PORT:-18789}
 
       # Host / Node

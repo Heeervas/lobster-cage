@@ -3,7 +3,7 @@ FROM ghcr.io/openclaw/openclaw:latest
 USER root
 
 # CLI-Toolbox: Network, System, Dev, Data Processing, Media
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
     # --- Network ---
     curl \
     wget \
@@ -51,6 +51,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xz-utils \
     # --- Search ---
     ripgrep \
+    # --- Diagnostics (lsof needed by openclaw doctor) ---
+    lsof \
     # --- TLS / Certs ---
     ca-certificates \
     openssl \
@@ -107,7 +109,8 @@ RUN pip3 install --break-system-packages \
 
 # Make the 'openclaw' CLI command available system-wide
 # (the npm package declares bin: { openclaw: openclaw.mjs } but isn't globally linked)
-RUN ln -sf /app/openclaw.mjs /usr/local/bin/openclaw
+RUN ln -sf /app/openclaw.mjs /usr/local/bin/openclaw \
+ && chmod 755 /app/openclaw.mjs
 
 # Install Playwright's Chromium — OpenClaw looks for this first (auto-detected, no browser config needed)
 # Must be installed as root and made world-readable so the 'node' user can access it at runtime.
