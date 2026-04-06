@@ -112,6 +112,8 @@ services:
         condition: service_healthy
       clawroute:
         condition: service_healthy
+      browserless:
+        condition: service_healthy
     # Container hardening
     cap_drop:
       - ALL
@@ -130,7 +132,7 @@ services:
       # Gateway (token auth – browser stores device token after first pairing)
       - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-0.0.0.0}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme}
-      - OPENCLAW_GATEWAY_TRUSTED_PROXIES=${OPENCLAW_GATEWAY_TRUSTED_PROXIES:-127.0.0.1,172.16.0.0/12,192.168.0.0/16,::1}
+      - OPENCLAW_GATEWAY_TRUSTED_PROXIES=${OPENCLAW_GATEWAY_TRUSTED_PROXIES:-127.0.0.1,172.16.0.0/12,172.28.0.0/16,192.168.0.0/16,::1}
       - OPENCLAW_GATEWAY_CONTROL_UI_ALLOWED_ORIGINS=https://${LAN_IP:-localhost}:${OPENCLAW_PORT:-18789}
 
       # Host / Node
@@ -147,8 +149,8 @@ services:
       - https_proxy=http://proxy:8888
       - HTTP_PROXY=http://proxy:8888
       - HTTPS_PROXY=http://proxy:8888
-      - NO_PROXY=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama
-      - no_proxy=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama
+      - NO_PROXY=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama,browserless
+      - no_proxy=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama,browserless
 
       # Web search & reader (internal services – no proxy needed)
       - SEARXNG_URL=http://searxng:8080
@@ -181,19 +183,22 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_USERNAME=${GITHUB_USERNAME}
       - GITHUB_EMAIL=${GITHUB_EMAIL}
+
+      # Browserless config patch
+      - OPENCLAW_CONFIG_PATCH=/etc/openclaw/config.patch.json
     volumes:
       # Persistent configuration + memories
       - ${OPENCLAW_DATA_PATH:-./data}:/home/node/.openclaw:Z
-      # gogcli credentials + config (persisted across restarts)
-      - ${OPENCLAW_DATA_PATH:-./data}/gogcli:/home/node/.config/gogcli:Z
-      # Workspace
-      - ${OPENCLAW_WORKSPACE_PATH:-./workspace}:/home/node/workspace:z
+      # gogcli credentials + config — separate path (XDG: ~/.config/gogcli)
+      - ${GOGCLI_DATA_PATH:-./gogcli}:/home/node/.config/gogcli:Z
       # Extra host mount (optional, e.g. shared NAS folder)
       # - /path/on/host:/home/node/extra:z
       # Proxy whitelist (single source of truth – read by proxy-bootstrap.js)
       - ./outbound-proxy/whitelist.txt:/etc/proxy-whitelist.txt:ro
       # Proxy bootstrap script (read-only – prevents agent from tampering)
       - ./agent/proxy-bootstrap.js:/proxy-bootstrap.js:ro
+      # Browserless config patch (read-only)
+      - ./agent/config.patch.json:/etc/openclaw/config.patch.json:ro
 
     networks:
       - openclaw_internal
@@ -229,13 +234,10 @@ services:
       - HTTP_PROXY=http://proxy:8888
       - HTTPS_PROXY=http://proxy:8888
       # Ollama and internal services bypass the proxy
-      - NO_PROXY=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
-      - no_proxy=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
+      - NO_PROXY=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader,browserless
+      - no_proxy=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader,browserless
     networks:
       - openclaw_internal
-      # ClawRoute routes remote API calls through Tinyproxy (http_proxy env vars above).
-      # All required API domains are in outbound-proxy/whitelist.txt.
-      # No direct internet access needed — internal network only.
     healthcheck:
       test: ["CMD-SHELL", "cat /proc/net/tcp | grep :4966 >/dev/null || exit 1"]
       interval: 10s
@@ -245,13 +247,8 @@ services:
     depends_on:
       proxy:
         condition: service_healthy
-      # ollama:
-      #   condition: service_healthy
     volumes:
       - ${CLAWROUTE_DATA_PATH:-./clawroute_data}:/app/data
-      # Mount host codex auth.json for subscription access (read-only).
-      # ClawRoute reads this at startup to get the OAuth token.
-      # After `codex login` refreshes the file, just `docker compose restart clawroute`.
       - ${HOME}/.codex/auth.json:/app/codex-auth.json:ro
 
   # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
@@ -265,18 +262,13 @@ services:
   #   security_opt:
   #     - no-new-privileges:true
   #   environment:
-  #     # Route model downloads through Tinyproxy (registry.ollama.ai is whitelisted)
   #     - http_proxy=http://proxy:8888
   #     - https_proxy=http://proxy:8888
   #     - HTTP_PROXY=http://proxy:8888
   #     - HTTPS_PROXY=http://proxy:8888
   #     - NO_PROXY=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
   #     - no_proxy=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
-  #     # Bind to all interfaces so other containers (ClawRoute) can reach Ollama.
   #     - OLLAMA_HOST=0.0.0.0:11434
-  #     # Default context window hint — the authoritative num_ctx is baked into the
-  #     # model's Modelfile (see swap-ollama-model.sh). This env var is a fallback
-  #     # for Ollama's native API path only; the OpenAI-compat endpoint ignores it.
   #     - OLLAMA_NUM_CTX=16384
   #   volumes:
   #     - ollama:/root/.ollama
@@ -288,6 +280,50 @@ services:
   #     timeout: 5s
   #     retries: 5
   #     start_period: 30s
+
+  # 9. Browserless — stealth headless Chromium (CDP endpoint for OpenClaw browser tool)
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    container_name: openclaw_browserless
+    restart: always
+    mem_limit: 1g
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    dns:
+      - 172.28.0.253
+    environment:
+      - ENABLE_DEBUGGER=true
+      - SCREEN_WIDTH=1280
+      - SCREEN_HEIGHT=720
+      - DEFAULT_LAUNCH_ARGS=--proxy-server=http://proxy:8888 --disable-crash-reporter --no-crashpad
+      - http_proxy=http://proxy:8888
+      - https_proxy=http://proxy:8888
+      - HTTP_PROXY=http://proxy:8888
+      - HTTPS_PROXY=http://proxy:8888
+      - NO_PROXY=localhost,127.0.0.1,::1,browserless,openclaw,proxy,caddy,searxng,reader,clawroute
+      - no_proxy=localhost,127.0.0.1,::1,browserless,openclaw,proxy,caddy,searxng,reader,clawroute
+    networks:
+      - openclaw_internal
+    depends_on:
+      proxy:
+        condition: service_healthy
+      dns:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/json/version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   # 8. Inbound HTTPS reverse proxy (Caddy)
   caddy:
@@ -304,6 +340,8 @@ services:
     ports:
       - "${OPENCLAW_PORT:-18789}:${OPENCLAW_PORT:-18789}"
       - "${CLAWROUTE_PORT:-18790}:${CLAWROUTE_PORT:-18790}"
+      - "3417:3417"
+      - "3005:3005"
     env_file:
       - caddy/caddy.env
     environment:

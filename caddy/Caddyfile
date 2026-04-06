@@ -22,6 +22,34 @@
     }
 }
 
+# Tool on port 3417
+:3417 {
+    tls /certs/cert.pem /certs/key.pem
+
+    basic_auth {
+        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+    }
+
+    reverse_proxy http://openclaw:3417
+}
+
+# Browserless debugger UI (live view of agent browser sessions)
+:3005 {
+    tls /certs/cert.pem /certs/key.pem
+
+    # Protect HTTP requests with basic auth.
+    # WebSocket connections (live screen stream) bypass auth —
+    # browser cannot send basic-auth headers in WS upgrades.
+    @not_websocket {
+        not header Connection *Upgrade*
+    }
+    basic_auth @not_websocket {
+        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+    }
+
+    reverse_proxy http://browserless:3000
+}
+
 # ClawRoute dashboard
 :{$CLAWROUTE_PORT:18790} {
     tls /certs/cert.pem /certs/key.pem

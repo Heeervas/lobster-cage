@@ -28,7 +28,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim-tiny \
     # --- Dev / Scripting ---
     git \
+    gh \
     make \
+    gcc \
+    g++ \
+    pkg-config \
     python3 \
     python3-pip \
     python3-venv \
@@ -50,6 +54,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # --- TLS / Certs ---
     ca-certificates \
     openssl \
+    # --- Browser (headless, no-sandbox mode) ---
+    chromium \
+    fonts-liberation \
     #Finish and cleanup
     && rm -rf /var/lib/apt/lists/* 
     
@@ -72,6 +79,21 @@ RUN mkdir -p /home/node/.config/pip /home/node/.config/gogcli \
     && printf '[global]\nproxy = http://proxy:8888\n' > /home/node/.config/pip/pip.conf \
     && chown -R node:node /home/node/.config
 
+# Install Deno (JS runtime required by yt-dlp EJS challenge solver)
+RUN set -eux; \
+    DENO_VERSION="2.2.3"; \
+    ARCH="$(dpkg --print-architecture)"; \
+    case "${ARCH}" in \
+        amd64) DENO_ARCH="x86_64-unknown-linux-gnu" ;; \
+        arm64) DENO_ARCH="aarch64-unknown-linux-gnu" ;; \
+        *) echo "Unsupported arch: ${ARCH}" && exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-${DENO_ARCH}.zip" \
+        -o /tmp/deno.zip; \
+    unzip /tmp/deno.zip -d /usr/local/bin; \
+    rm /tmp/deno.zip; \
+    chmod +x /usr/local/bin/deno
+
 # Pre-installed Python packages
 RUN pip3 install --break-system-packages \
     python-docx \
@@ -79,11 +101,22 @@ RUN pip3 install --break-system-packages \
     numpy \
     pandas \
     matplotlib \
-    requests
+    requests \
+    "yt-dlp[default]" \
+    curl-cffi
 
 # Make the 'openclaw' CLI command available system-wide
 # (the npm package declares bin: { openclaw: openclaw.mjs } but isn't globally linked)
 RUN ln -sf /app/openclaw.mjs /usr/local/bin/openclaw
+
+# Install Playwright's Chromium — OpenClaw looks for this first (auto-detected, no browser config needed)
+# Must be installed as root and made world-readable so the 'node' user can access it at runtime.
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright-browsers
+RUN node /app/node_modules/playwright-core/cli.js install chromium \
+    && chmod -R a+rx /usr/local/share/playwright-browsers
+
+# Pre-create Node compile cache dir (NODE_COMPILE_CACHE won't auto-create it)
+RUN mkdir -p /var/tmp/openclaw-compile-cache && chown node:node /var/tmp/openclaw-compile-cache
 
 # Global HTTP proxy for Node.js fetch() — loaded via NODE_OPTIONS
 COPY proxy-bootstrap.js /proxy-bootstrap.js

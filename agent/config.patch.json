@@ -1,0 +1,10 @@
+{
+  "browser": {
+    "profiles": {
+      "stealth": {
+        "cdpUrl": "http://browserless:3000",
+        "color": "#00AA00"
+      }
+    }
+  }
+}

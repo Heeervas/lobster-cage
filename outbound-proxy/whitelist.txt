@@ -336,6 +336,250 @@ timetravel.mementoweb.org        # API para versiones históricas
 # ──────────────────────────────────────────────────────────
 x.com
 youtu.be
-open-meteo.com
+open-meteo.com          
 www.googleapis.com               # YouTube Data API v3
 youtube.com
+ytimg.com
+googlevideo.com
+
+# ════════════════════════════════════════════════════════
+# DOMINIOS ADICIONALES (importados domains.txt — 2026-03-27)
+# Bloques independientes — borra los que no necesites.
+# ════════════════════════════════════════════════════════
+
+# ──────────────────────────────────────────────────────────
+# GOOGLE SERVICES (adicionales)
+# ──────────────────────────────────────────────────────────
+datastudio.google.com
+developers.google.com
+docs.google.com
+drive.google.com
+lookerstudio.google.com
+m.youtube.com
+podcasts.google.com
+support.google.com
+
+# ──────────────────────────────────────────────────────────
+# EDUCACIÓN Y FORMACIÓN ONLINE
+# ──────────────────────────────────────────────────────────
+blog.k2datascience.com
+brilliant.org
+codeitbro.com
+coursera.org
+css-tricks.com
+datacamp.com
+dennisivy.com
+earthdatascience.org
+edx.org
+fullstackopen.com
+justdjango.com
+learn-anything.xyz
+leanpub.com
+mltut.com
+online-learning.harvard.edu
+practicaldatascience.co.uk
+realpython.com
+saaspegasus.com
+seeing-theory.brown.edu
+techvidvan.com
+www3.ntu.edu.sg
+
+# ──────────────────────────────────────────────────────────
+# DESARROLLO & PROGRAMACIÓN
+# ──────────────────────────────────────────────────────────
+chimildic.github.io
+clauswilke.com
+creative-tim.com
+dataconomy.com
+developer.apple.com
+developers.facebook.com
+dipndive.com
+dumbdata.co
+feldroy.com
+forgepackages.com
+gist.github.com
+insightfellows.com
+jcchouinard.com
+lazarinastoy.com
+levelup.gitconnected.com
+medium.com
+ngdata.com
+owlcarousel2.github.io
+pemavor.com
+spookylukey.github.io
+stackoverflow.blog
+tatvic.com
+techgaun.github.io
+timgthomas.com
+towardsdatascience.com
+vallandingham.me
+
+# ──────────────────────────────────────────────────────────
+# SEO & ANALYTICS (Google Analytics / GTM / SEM)
+# ──────────────────────────────────────────────────────────
+analyticsmania.com
+audisto.com
+bounteous.com
+cognitiveseo.com
+contentkingapp.com
+data.ga4spy.com
+digicruncher.com
+gaconnector.com
+gsqi.com
+holisticseo.digital
+how.withlookerstudio.com
+jetoctopus.com
+keywordsinsheets.com
+learningseo.io
+monsterinsights.com
+oncrawl.com
+searchengineland.com
+seodelnorte.com
+seomba.substack.com
+seosly.com
+sheet2site.com
+simoahava.com
+thedrum.com
+thyngster.com
+
+# ──────────────────────────────────────────────────────────
+# FINANZAS & INVERSIÓN
+# ──────────────────────────────────────────────────────────
+bankeronwheels.com
+bitcoinnovatos.com
+blockchaincenter.net
+bogleheads.es
+coincodex.com
+fanniemae.com
+finect.com
+justetf.com
+marketcaps.site
+
+# ──────────────────────────────────────────────────────────
+# LEGAL & PRIVACIDAD / REGULACIÓN
+# ──────────────────────────────────────────────────────────
+aepd.es
+cheatsheetseries.owasp.org
+cnmv.es
+edpb.europa.eu
+
+# ──────────────────────────────────────────────────────────
+# TECNOLOGÍA & HARDWARE / SELF-HOSTING
+# ──────────────────────────────────────────────────────────
+gamepadla.com
+gateron.co
+ios-resolution.com
+lazer3d.com
+legiony700.com
+logicalincrements.com
+macrumors.com
+makerworld.com
+rewasd.com
+thingiverse.com
+theselfhostingblog.com
+tp-link.com
+uevr-profiles.com
+vr4dcs.com
+windowsreport.com
+xdaforums.com
+
+# ──────────────────────────────────────────────────────────
+# VIDEOJUEGOS
+# ──────────────────────────────────────────────────────────
+gamesindustry.biz
+mhwilds.wiki-db.com
+rawg.io
+steamcommunity.com
+store.steampowered.com
+wzhub.gg
+
+# ──────────────────────────────────────────────────────────
+# SOCIAL MEDIA & COMUNIDADES (adicionales)
+# ──────────────────────────────────────────────────────────
+elotrolado.net
+foro.elchapuzasinformatico.com
+forocoches.com
+instagram.com
+linkedin.com
+m.forocoches.com
+opportunity.linkedin.com
+slideshare.net
+tiktok.com
+twitter.com
+
+# ──────────────────────────────────────────────────────────
+# NOTICIAS & MEDIOS (adicionales)
+# ──────────────────────────────────────────────────────────
+motherjones.com
+techjury.net
+theringer.com
+theverge.com
+
+# ──────────────────────────────────────────────────────────
+# SALUD & BIENESTAR
+# ──────────────────────────────────────────────────────────
+heysigmund.com
+jamesclear.com
+jefit.com
+matthewhussey.com
+medicalnewstoday.com
+psychologytoday.com
+tdeecalculator.net
+thefitness.wiki
+watch.lesmillsondemand.com
+
+# ──────────────────────────────────────────────────────────
+# VIAJES & OCIO
+# ──────────────────────────────────────────────────────────
+coches.net
+getyourguide.es
+m.autodoc.es
+mergullocompostela.com
+secretescapes.com
+
+# ──────────────────────────────────────────────────────────
+# PRODUCTIVIDAD & HERRAMIENTAS PERSONALES
+# ──────────────────────────────────────────────────────────
+forum.obsidian.md
+gartner.com
+orchids.app
+qshuffle.com
+routinehub.co
+untools.co
+
+# ──────────────────────────────────────────────────────────
+# IDIOMAS & CULTURA
+# ──────────────────────────────────────────────────────────
+genius.com
+quasitaliano.com
+
+# ──────────────────────────────────────────────────────────
+# E-COMMERCE & COMPRAS
+# ──────────────────────────────────────────────────────────
+acquire.com
+apps.apple.com
+drop.com
+stacksocial.com
+
+# ──────────────────────────────────────────────────────────
+# VARIOS & UTILIDADES
+# ──────────────────────────────────────────────────────────
+archive.ph
+brew.sh
+datola.es
+import.io
+infoautonomos.com
+miraviolet.com
+spoonacular.com
+thescriptlab.com
+
+# ──────────────────────────────────────────────────────────
+# ONE-SHOT (temporal — habilitar puntualmente y retirar)
+# ──────────────────────────────────────────────────────────
+elrincondeaquiles.com
+hackmd.io
+humansinstructions.quora.com
+sportsrehab.ucsf.edu
+yesnogame.net
+leioamotor.es
+claude.ai
