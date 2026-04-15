@@ -11,6 +11,8 @@ api.bitbucket.org
 
 # Google / Gemini
 googleapis.com
+bing.com
+speech.platform.bing.com
 
 # NVIDIA
 nvidia.com
@@ -24,6 +26,13 @@ core.telegram.org
 openclaw.io
 docs.openclaw.ai
 clawhub.ai
+
+# Hermes
+hermes-agent.nousresearch.com
+nousresearch.com
+
+# Internal services (accessed by Browserless browser on behalf of Hermes)
+hermes
 
 # Anthropic
 api.anthropic.com
@@ -77,6 +86,7 @@ r2.cloudflarestorage.com
 # Huggingface
 huggingface.co
 cdn-lfs.huggingface.co
+xethub.hf.co
 
 # Bookmarks & Note-taking
 raindrop.io
@@ -335,6 +345,10 @@ timetravel.mementoweb.org        # API para versiones históricas
 # SOCIAL MEDIA & UTILITIES
 # ──────────────────────────────────────────────────────────
 x.com
+twitter.com
+mobile.twitter.com
+twimg.com
+api.x.com
 youtu.be
 open-meteo.com          
 www.googleapis.com               # YouTube Data API v3

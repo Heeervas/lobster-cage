@@ -1,9 +1,15 @@
+# Caddyfile.hermes — Reverse proxy config for Hermes Agent
+# Mounted automatically via docker-compose.hermes.yml
+# Differences from default Caddyfile:
+#   - Main proxy → hermes:8642 (Hermes API Server) instead of openclaw:18789
+#   - No /go redirect (OpenClaw-specific device token pairing)
+#   - No :3417 tool proxy (OpenClaw-specific)
+
 :{$OPENCLAW_PORT:18789} {
     tls /certs/cert.pem /certs/key.pem
 
     route {
         # Basic Auth for HTTP only (not WebSocket)
-        # WebSocket auth is handled by OpenClaw's device-token system
         @not_websocket {
             not header Connection *Upgrade*
         }
@@ -11,35 +17,18 @@
             {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
         }
 
-        # Bookmark /go to auto-authenticate on every browser session
-        redir /go /#token={$OPENCLAW_GATEWAY_TOKEN} 302
-
-        # Reverse proxy to OpenClaw
-        reverse_proxy http://openclaw:18789 {
+        # Reverse proxy to Hermes API Server (port 8642)
+        reverse_proxy http://hermes:8642 {
             header_up -Authorization
             header_up X-Real-IP {remote_host}
         }
     }
 }
 
-# Tool on port 3417
-:3417 {
-    tls /certs/cert.pem /certs/key.pem
-
-    basic_auth {
-        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
-    }
-
-    reverse_proxy http://openclaw:3417
-}
-
 # Browserless debugger UI (live view of agent browser sessions)
 :3005 {
     tls /certs/cert.pem /certs/key.pem
 
-    # Protect HTTP requests with basic auth.
-    # WebSocket connections (live screen stream) bypass auth —
-    # browser cannot send basic-auth headers in WS upgrades.
     @not_websocket {
         not header Connection *Upgrade*
     }
@@ -59,4 +48,37 @@
     }
 
     reverse_proxy http://clawroute:18790
+}
+
+# Hermes Dashboard (config, sessions, analytics, cron, skills)
+:9119 {
+    tls /certs/cert.pem /certs/key.pem
+
+    basic_auth {
+        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+    }
+
+    reverse_proxy http://hermes:9119
+}
+
+# Hermes app (agent-created web app)
+:8787 {
+    tls /certs/cert.pem /certs/key.pem
+
+    basic_auth {
+        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+    }
+
+    reverse_proxy http://hermes:8787
+}
+
+# Hermes app on port 3199
+:3199 {
+    tls /certs/cert.pem /certs/key.pem
+
+    basic_auth {
+        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+    }
+
+    reverse_proxy http://hermes:3199
 }

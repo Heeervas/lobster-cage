@@ -1,0 +1,183 @@
+# docker-compose.wger.yml — wger fitness tracker (optional add-on)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.wger.yml up -d
+#
+# Prerequisites:
+#   1. Clone the fork: git clone https://github.com/eve-ai-dev/wger.git ../wger
+#   2. Copy env: cp wger/wger.env wger/.env  (then edit SECRET_KEY)
+#   3. First run: docker compose -f docker-compose.yml -f docker-compose.wger.yml exec wger_web python3 manage.py createsuperuser
+
+services:
+  # wger Django app server (production image + source mount for live editing)
+  # Hermes can modify files in the mounted source → gunicorn --reload picks up changes
+  wger_web:
+    image: docker.io/wger/server:latest
+    container_name: wger_web
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/home/wger/entrypoint-wrapper.sh"]
+    env_file:
+      - ./wger/wger.env
+    environment:
+      # Override gunicorn to auto-reload on source changes (Hermes live editing)
+      - GUNICORN_CMD_ARGS=--workers 2 --threads 2 --worker-class gthread --timeout 240 --reload
+      - WGER_USE_GUNICORN=True
+      - DJANGO_DEBUG=True
+      # Collect static files on every startup (whitenoise needs them)
+      - DJANGO_COLLECTSTATIC_ON_STARTUP=True
+    volumes:
+      # Live source mount — Hermes edits here, gunicorn auto-reloads
+      - ${WGER_REPO_PATH:-../wger}:/home/wger/src:z
+      # Persistent media (user uploads, exercise images)
+      - wger_media:/home/wger/media
+      # Static files (collected by Django on startup)
+      - wger_static:/home/wger/static
+      # Wrapper entrypoint (installs whitenoise for static serving)
+      - ./wger/entrypoint-wrapper.sh:/home/wger/entrypoint-wrapper.sh:ro
+    expose:
+      - 8000
+    ports:
+      # Localhost + Tailscale access (NOT exposed through Caddy)
+      - "0.0.0.0:8000:8000"
+    networks:
+      openclaw_internal:
+        aliases:
+          - wger
+      # openclaw_external needed for host port publishing (internal: true blocks it)
+      openclaw_external: {}
+    depends_on:
+      wger_db:
+        condition: service_healthy
+      wger_cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000"]
+      interval: 10s
+      timeout: 5s
+      start_period: 300s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: 5
+
+  # PostgreSQL — wger database (isolated, not shared with other services)
+  wger_db:
+    image: docker.io/postgres:15-alpine
+    container_name: wger_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=wger
+      - POSTGRES_PASSWORD=wger
+      - POSTGRES_DB=wger
+      - TZ=Europe/Madrid
+    volumes:
+      - wger_postgres_data:/var/lib/postgresql/data/
+    expose:
+      - 5432
+    networks:
+      - openclaw_internal
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "wger"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: 5
+
+  # Redis — caching + Celery broker
+  wger_cache:
+    image: docker.io/redis
+    container_name: wger_cache
+    restart: unless-stopped
+    expose:
+      - 6379
+    volumes:
+      - wger_redis_data:/data
+    networks:
+      - openclaw_internal
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: 5
+
+  # Celery worker — background tasks (exercise sync, image downloads, cache warmup)
+  wger_celery_worker:
+    image: docker.io/wger/server:latest
+    container_name: wger_celery_worker
+    command: /start-worker
+    restart: unless-stopped
+    env_file:
+      - ./wger/wger.env
+    volumes:
+      - ${WGER_REPO_PATH:-../wger}:/home/wger/src:z
+      - wger_media:/home/wger/media
+    networks:
+      - openclaw_internal
+    depends_on:
+      wger_web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "-A", "wger", "inspect", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: 5
+
+  # Celery beat — scheduled tasks (weekly exercise sync, cache warmup)
+  wger_celery_beat:
+    image: docker.io/wger/server:latest
+    container_name: wger_celery_beat
+    command: /start-beat
+    restart: unless-stopped
+    env_file:
+      - ./wger/wger.env
+    volumes:
+      - ${WGER_REPO_PATH:-../wger}:/home/wger/src:z
+      - wger_celery_beat:/home/wger/beat/
+    networks:
+      - openclaw_internal
+    depends_on:
+      wger_celery_worker:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: 5
+
+  # Override hermes to add wger hostnames to NO_PROXY and mount wger source
+  # Docker Compose replaces env vars (doesn't append), so we repeat the full list
+  hermes:
+    environment:
+      - NO_PROXY=localhost,127.0.0.1,::1,hermes,proxy,caddy,searxng,reader,clawroute,ollama,browserless,wger,wger_web,wger_db,wger_cache
+      - no_proxy=localhost,127.0.0.1,::1,hermes,proxy,caddy,searxng,reader,clawroute,ollama,browserless,wger,wger_web,wger_db,wger_cache
+      # wger API base URL for agent tools/scripts
+      - WGER_API_URL=http://wger:8000/api/v2
+      - WGER_BASE_URL=http://wger:8000
+      - WGER_API_TOKEN=${WGER_API_TOKEN}
+    volumes:
+      # Mount wger source for live editing (gunicorn --reload picks up changes)
+      - ${WGER_REPO_PATH:-../wger}:/opt/wger-src:z
+
+volumes:
+  wger_postgres_data:
+  wger_media:
+  wger_static:
+  wger_redis_data:
+  wger_celery_beat:

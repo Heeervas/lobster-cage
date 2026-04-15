@@ -2,6 +2,7 @@
 .env
 .env.backup
 caddy/caddy.env
+wger/wger.env
 
 # Personal overrides (machine-specific mounts, env vars, etc.)
 docker-compose.override.yml
@@ -32,3 +33,4 @@ comands.md
 README.md.bak
 clawroute_data/clawroute.db
 outbound-proxy/whitelist.txt
+__pycache__/

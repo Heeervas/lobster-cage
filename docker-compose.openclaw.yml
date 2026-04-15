@@ -1,0 +1,122 @@
+# docker-compose.openclaw.yml — Override to swap Hermes for OpenClaw
+# Usage: docker compose -f docker-compose.yml -f docker-compose.openclaw.yml up -d
+# Rollback: docker compose up -d  (runs base file only = Hermes)
+
+services:
+  # Override Hermes to a no-op when using OpenClaw.
+  # We can't use profiles:disabled because caddy depends_on hermes in the base file,
+  # and Docker Compose merges depends_on (can't remove base dependencies).
+  # Instead, replace with a tiny no-op container that stays "healthy".
+  hermes:
+    image: busybox:latest
+    entrypoint: ["sh", "-c", "while true; do sleep 86400; done"]
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 5s
+      timeout: 2s
+      retries: 1
+    mem_limit: 6m
+
+  # OpenClaw AI Agent (legacy)
+  openclaw:
+    build: ./agent
+    container_name: openclaw_agent
+    restart: always
+    dns:
+      - 172.28.0.253
+    depends_on:
+      proxy:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
+      reader:
+        condition: service_healthy
+      dns:
+        condition: service_healthy
+      clawroute:
+        condition: service_healthy
+      browserless:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    tmpfs:
+      - /tmp
+    environment:
+      # Gateway (token auth)
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-0.0.0.0}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme}
+      - OPENCLAW_GATEWAY_CONTROL_UI_ALLOWED_ORIGINS=https://${LAN_IP:-localhost}:${OPENCLAW_PORT:-18789}
+
+      # Host / Node
+      - HOST=0.0.0.0
+      - NODE_OPTIONS=--dns-result-order=ipv4first --require=/proxy-bootstrap.js
+      - NODE_COMPILE_CACHE=/var/tmp/openclaw-compile-cache
+      - OPENCLAW_NO_RESPAWN=1
+
+      # Agent
+      - OPENCLAW_AGENT_MAX_CONCURRENT=${OPENCLAW_AGENT_MAX_CONCURRENT:-8}
+      - OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT=${OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT:-12}
+      - OPENCLAW_AGENT_COMPACTION_MODE=${OPENCLAW_AGENT_COMPACTION_MODE:-safeguard}
+
+      # Outbound proxy
+      - http_proxy=http://proxy:8888
+      - https_proxy=http://proxy:8888
+      - HTTP_PROXY=http://proxy:8888
+      - HTTPS_PROXY=http://proxy:8888
+      - NO_PROXY=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama,browserless
+      - no_proxy=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama,browserless
+
+      # Web search & reader
+      - SEARXNG_URL=http://searxng:8080
+      - READER_PROXY_URL=http://reader:3000
+      - BRAVE_API_KEY=local-searxng-proxy
+
+      # API Keys
+      - COPILOT_GITHUB_TOKEN=${COPILOT_GITHUB_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+      # Telegram
+      - TELEGRAM_ENABLED=${TELEGRAM_BOT_TOKEN:+true}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY:-pairing}
+
+      - TLS_SKIP_VERIFY_HOSTS=${TLS_SKIP_VERIFY_HOSTS}
+      - GOG_KEYRING_BACKEND=file
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}
+      - GITHUB_EMAIL=${GITHUB_EMAIL}
+      - OPENCLAW_CONFIG_PATCH=/etc/openclaw/config.patch.json
+    volumes:
+      - ${OPENCLAW_DATA_PATH:-./data}:/home/node/.openclaw:Z
+      - ${GOGCLI_DATA_PATH:-./gogcli}:/home/node/.config/gogcli:Z
+      - ./outbound-proxy/whitelist.txt:/etc/proxy-whitelist.txt:ro
+      - ./agent/proxy-bootstrap.js:/proxy-bootstrap.js:ro
+      - ./agent/config.patch.json:/etc/openclaw/config.patch.json:ro
+    networks:
+      - openclaw_internal
+
+  # Override Caddy to point to OpenClaw instead of Hermes
+  caddy:
+    depends_on:
+      - openclaw
+    ports:
+      - "3417:3417"
+    environment:
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+    volumes:
+      - ./caddy/Caddyfile.openclaw:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro

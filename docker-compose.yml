@@ -94,10 +94,11 @@ services:
         ipv4_address: 172.28.0.253
       openclaw_external: {}
 
-  # 5. OpenClaw AI Agent
-  openclaw:
-    build: ./agent
-    container_name: openclaw_agent
+  # 5. Hermes AI Agent (default agent — replaces OpenClaw)
+  # To use OpenClaw instead: docker compose -f docker-compose.yml -f docker-compose.openclaw.yml up -d
+  hermes:
+    build: ./hermes
+    container_name: hermes_agent
     restart: always
     dns:
       - 172.28.0.253
@@ -114,7 +115,6 @@ services:
         condition: service_healthy
       browserless:
         condition: service_healthy
-    # Container hardening
     cap_drop:
       - ALL
     cap_add:
@@ -122,88 +122,99 @@ services:
       - FOWNER
       - SETGID
       - SETUID
+      - DAC_OVERRIDE
       - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
     mem_limit: 2g
+    # Run in gateway mode (Telegram + API server), not interactive REPL
+    command: ["gateway", "run"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${HERMES_API_PORT:-8642}/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     tmpfs:
       - /tmp
     environment:
-      # Gateway (token auth – browser stores device token after first pairing)
-      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-0.0.0.0}
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-changeme}
-      # NOTE: trustedProxies is set via config.patch.json (gateway.trustedProxies array).
-      # OPENCLAW_GATEWAY_TRUSTED_PROXIES is not read by v2026.4.5+ — removed to avoid confusion.
-      - OPENCLAW_GATEWAY_CONTROL_UI_ALLOWED_ORIGINS=https://${LAN_IP:-localhost}:${OPENCLAW_PORT:-18789}
+      # Hermes core
+      - HERMES_HOME=/opt/data
+      - HF_HOME=/opt/data/.cache/huggingface
+      # Match host volume ownership (gosu remaps at runtime, avoids slow build-time chown)
+      - HERMES_UID=1000
+      - HERMES_GID=1000
 
-      # Host / Node
-      - HOST=0.0.0.0
-      - NODE_OPTIONS=--dns-result-order=ipv4first --require=/proxy-bootstrap.js
-      - NODE_COMPILE_CACHE=/var/tmp/openclaw-compile-cache
-      # Avoid self-respawn overhead — Docker restart: always handles restarts
-      - OPENCLAW_NO_RESPAWN=1
+      # Dashboard (web UI for config, sessions, analytics)
+      - HERMES_DASHBOARD_ENABLED=true
+      - HERMES_DASHBOARD_PORT=9119
 
-      # Agent
-      - OPENCLAW_AGENT_MAX_CONCURRENT=${OPENCLAW_AGENT_MAX_CONCURRENT:-8}
-      - OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT=${OPENCLAW_AGENT_SUBAGENT_MAX_CONCURRENT:-12}
-      - OPENCLAW_AGENT_COMPACTION_MODE=${OPENCLAW_AGENT_COMPACTION_MODE:-safeguard}
+      # API Server (replaces OpenClaw gateway)
+      - API_SERVER_ENABLED=true
+      - API_SERVER_PORT=${HERMES_API_PORT:-8642}
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_KEY=${HERMES_API_KEY:-changeme}
 
-      # Outbound proxy (only for whitelisted APIs: Telegram, OpenAI, etc.)
+      # Agent behavior
+      - HERMES_MAX_ITERATIONS=${HERMES_MAX_ITERATIONS:-90}
+
+      # LLM Provider — ClawRoute as OpenAI-compatible endpoint
+      - OPENAI_BASE_URL=http://clawroute:18790/v1
+      - OPENAI_API_KEY=${CLAWROUTE_TOKEN}
+      # Named custom provider key (config.yaml custom_providers[custom-1].api_key_env)
+      - CUSTOM_1_API_KEY=${CLAWROUTE_TOKEN}
+
+      # Browserless CDP
+      - BROWSER_CDP_URL=http://browserless:3000
+
+      # Node.js preload: CDP endpoint rewriting for Docker networking
+      - NODE_OPTIONS=--require=/opt/hermes/bootstrap/cdp-patch.js
+
+      # Proxy bootstrap Python (sitecustomize.py)
+      - PYTHONPATH=/opt/hermes/bootstrap
+
+      # SearXNG plugin
+      - SEARXNG_INSTANCE_URL=http://searxng:8080
+
+      # Outbound proxy
       - http_proxy=http://proxy:8888
       - https_proxy=http://proxy:8888
       - HTTP_PROXY=http://proxy:8888
       - HTTPS_PROXY=http://proxy:8888
-      - NO_PROXY=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama,browserless
-      - no_proxy=localhost,127.0.0.1,::1,openclaw,proxy,caddy,searxng,reader,clawroute,ollama,browserless
+      - NO_PROXY=localhost,127.0.0.1,::1,hermes,proxy,caddy,searxng,reader,clawroute,ollama,browserless
+      - no_proxy=localhost,127.0.0.1,::1,hermes,proxy,caddy,searxng,reader,clawroute,ollama,browserless
 
-      # Web search & reader (internal services – no proxy needed)
+      # Internal services
       - SEARXNG_URL=http://searxng:8080
       - READER_PROXY_URL=http://reader:3000
 
-      # Dummy key: OpenClaw checks if BRAVE_API_KEY is set before calling
-      # web_search. proxy-bootstrap.js intercepts the request and redirects
-      # to SearXNG – no request is ever sent to Brave.
-      - BRAVE_API_KEY=local-searxng-proxy
+      # Telegram (see .env for HERMES_TELEGRAM_BOT_TOKEN)
+      - TELEGRAM_BOT_TOKEN=${HERMES_TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_ALLOWED_USERS=${HERMES_TELEGRAM_ALLOWED_USERS}
+      - TELEGRAM_BOT_TOKEN_COACH=${HERMES_TELEGRAM_BOT_TOKEN_COACH}
+      - TELEGRAM_ALLOWED_USERS_COACH=${HERMES_TELEGRAM_ALLOWED_USERS_COACH}
 
-      # API Keys (from .env)
-      - COPILOT_GITHUB_TOKEN=${COPILOT_GITHUB_TOKEN}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Profile auto-start (comma-separated list of profiles to run alongside default)
+      - HERMES_AUTOSTART_PROFILES=${HERMES_AUTOSTART_PROFILES:-coach}
 
-      # Telegram (optional)
-      - TELEGRAM_ENABLED=${TELEGRAM_BOT_TOKEN:+true}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY:-pairing}
-
-      # TLS skip verification for self-signed certs (e.g. local Nextcloud)
-      - TLS_SKIP_VERIFY_HOSTS=${TLS_SKIP_VERIFY_HOSTS}
-
-      # gogcli (gog) — headless keyring (no OS keychain in container)
-      - GOG_KEYRING_BACKEND=file
-      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD:-}
-
+      # GitHub
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_USERNAME=${GITHUB_USERNAME}
       - GITHUB_EMAIL=${GITHUB_EMAIL}
 
-      # Browserless config patch
-      - OPENCLAW_CONFIG_PATCH=/etc/openclaw/config.patch.json
-    volumes:
-      # Persistent configuration + memories
-      - ${OPENCLAW_DATA_PATH:-./data}:/home/node/.openclaw:Z
-      # gogcli credentials + config — separate path (XDG: ~/.config/gogcli)
-      - ${GOGCLI_DATA_PATH:-./gogcli}:/home/node/.config/gogcli:Z
-      # Extra host mount (optional, e.g. shared NAS folder)
-      # - /path/on/host:/home/node/extra:z
-      # Proxy whitelist (single source of truth – read by proxy-bootstrap.js)
-      - ./outbound-proxy/whitelist.txt:/etc/proxy-whitelist.txt:ro
-      # Proxy bootstrap script (read-only – prevents agent from tampering)
-      - ./agent/proxy-bootstrap.js:/proxy-bootstrap.js:ro
-      # Browserless config patch (read-only)
-      - ./agent/config.patch.json:/etc/openclaw/config.patch.json:ro
+      # Raindrop (added for API access)
+      - RAINDROP_API_KEY=${RAINDROP_API_KEY}
 
+      # gogcli
+      - GOG_KEYRING_BACKEND=file
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD:-}
+    volumes:
+      # Persistent Hermes data
+      - ${HERMES_DATA_PATH:-./hermes-data}:/opt/data:Z
+      # gogcli credentials
+      - ${GOGCLI_DATA_PATH:-./gogcli}:/opt/data/.config/gogcli:Z
+      # Proxy whitelist (read-only — agent cannot modify proxy rules)
+      - ./outbound-proxy/whitelist.txt:/etc/proxy-whitelist.txt:ro
     networks:
       - openclaw_internal
     # Security: agent ONLY on internal network – no direct internet access.
@@ -238,8 +249,8 @@ services:
       - HTTP_PROXY=http://proxy:8888
       - HTTPS_PROXY=http://proxy:8888
       # Ollama and internal services bypass the proxy
-      - NO_PROXY=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader,browserless
-      - no_proxy=localhost,127.0.0.1,::1,ollama,openclaw,clawroute,proxy,caddy,searxng,reader,browserless
+      - NO_PROXY=localhost,127.0.0.1,::1,ollama,hermes,clawroute,proxy,caddy,searxng,reader,browserless
+      - no_proxy=localhost,127.0.0.1,::1,ollama,hermes,clawroute,proxy,caddy,searxng,reader,browserless
     networks:
       - openclaw_internal
       # ClawRoute routes remote API calls through Tinyproxy (http_proxy env vars above).
@@ -279,8 +290,8 @@ services:
   #     - https_proxy=http://proxy:8888
   #     - HTTP_PROXY=http://proxy:8888
   #     - HTTPS_PROXY=http://proxy:8888
-  #     - NO_PROXY=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
-  #     - no_proxy=localhost,127.0.0.1,::1,0.0.0.0,ollama,openclaw,clawroute,proxy,caddy,searxng,reader
+  #     - NO_PROXY=localhost,127.0.0.1,::1,0.0.0.0,ollama,hermes,clawroute,proxy,caddy,searxng,reader
+  #     - no_proxy=localhost,127.0.0.1,::1,0.0.0.0,ollama,hermes,clawroute,proxy,caddy,searxng,reader
   #     # Bind to all interfaces so other containers (ClawRoute) can reach Ollama.
   #     - OLLAMA_HOST=0.0.0.0:11434
   #     # Default context window hint — the authoritative num_ctx is baked into the
@@ -329,8 +340,8 @@ services:
       - https_proxy=http://proxy:8888
       - HTTP_PROXY=http://proxy:8888
       - HTTPS_PROXY=http://proxy:8888
-      - NO_PROXY=localhost,127.0.0.1,::1,browserless,openclaw,proxy,caddy,searxng,reader,clawroute
-      - no_proxy=localhost,127.0.0.1,::1,browserless,openclaw,proxy,caddy,searxng,reader,clawroute
+      - NO_PROXY=localhost,127.0.0.1,::1,browserless,hermes,proxy,caddy,searxng,reader,clawroute
+      - no_proxy=localhost,127.0.0.1,::1,browserless,hermes,proxy,caddy,searxng,reader,clawroute
     networks:
       - openclaw_internal
     # Security: browserless ONLY on internal network — no direct internet.
@@ -362,15 +373,16 @@ services:
     ports:
       - "${OPENCLAW_PORT:-18789}:${OPENCLAW_PORT:-18789}"
       - "${CLAWROUTE_PORT:-18790}:${CLAWROUTE_PORT:-18790}"
-      - "3417:3417"
       - "3005:3005"
+      - "8787:8787"
+      - "3199:3199"
+      - "9119:9119"
     env_file:
       - caddy/caddy.env
     environment:
       - CADDY_AUTH_USER=${CADDY_AUTH_USER:-admin}
       - OPENCLAW_PORT=${OPENCLAW_PORT:-18789}
       - CLAWROUTE_PORT=${CLAWROUTE_PORT:-18790}
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy/portal.html:/srv/portal.html:ro
@@ -379,7 +391,7 @@ services:
       - openclaw_internal
       - openclaw_external
     depends_on:
-      - openclaw
+      - hermes
 
 networks:
   openclaw_internal:
