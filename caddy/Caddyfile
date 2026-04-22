@@ -36,7 +36,23 @@
         {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
     }
 
-    reverse_proxy http://browserless:3000
+    route {
+        @debugger_router path /debugger/router.js
+        handle @debugger_router {
+            rewrite * /router.js
+            root * /srv/browserless-debugger
+            file_server
+        }
+
+        handle {
+            reverse_proxy http://browserless:3000 {
+                header_up Authorization "Bearer {$BROWSERLESS_TOKEN}"
+                header_up Host {host}
+                header_up X-Forwarded-Host {host}
+                header_up X-Forwarded-Proto {scheme}
+            }
+        }
+    }
 }
 
 # ClawRoute dashboard
@@ -54,11 +70,19 @@
 :9119 {
     tls /certs/cert.pem /certs/key.pem
 
-    basic_auth {
-        {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+    # API/WS routes — skip basic_auth; Hermes validates its own Bearer token
+    @internal path /api/* /ws/*
+    handle @internal {
+        reverse_proxy http://hermes:9119
     }
 
-    reverse_proxy http://hermes:9119
+    # Everything else — require Caddy basic auth
+    handle {
+        basic_auth {
+            {$CADDY_AUTH_USER:admin} {$CADDY_AUTH_HASH}
+        }
+        reverse_proxy http://hermes:9119
+    }
 }
 
 # Hermes app (agent-created web app)
