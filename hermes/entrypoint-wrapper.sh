@@ -11,10 +11,19 @@ if [ -d /opt/hermes-plugins ] && [ ! -d "${HERMES_HOME}/plugins/web-search-plus"
     echo "[entrypoint] Plugins copied to ${HERMES_HOME}/plugins/"
 fi
 
-# ─── Re-apply gateway patches (idempotent) ───────────────────────
+# ─── Re-apply Hermes patches (idempotent) ────────────────────────
 # Ensures patches survive even if the agent overwrites files at runtime.
 if [ -f "$INSTALL_DIR/patches/patch_prompt_load_callback.py" ]; then
     python3 "$INSTALL_DIR/patches/patch_prompt_load_callback.py" 2>&1 | sed 's/^/[entrypoint] /'
+fi
+if [ -f "$INSTALL_DIR/patches/patch_checkpoint_rollback_scan.py" ]; then
+    python3 "$INSTALL_DIR/patches/patch_checkpoint_rollback_scan.py" 2>&1 | sed 's/^/[entrypoint] /'
+fi
+if [ -f "$INSTALL_DIR/patches/patch_mcp_proxy_env.py" ]; then
+    python3 "$INSTALL_DIR/patches/patch_mcp_proxy_env.py" 2>&1 | sed 's/^/[entrypoint] /'
+fi
+if [ -f "$INSTALL_DIR/patches/patch_mcp_stdio_preamble_filter.py" ]; then
+    python3 "$INSTALL_DIR/patches/patch_mcp_stdio_preamble_filter.py" 2>&1 | sed 's/^/[entrypoint] /'
 fi
 
 # ─── Privilege dropping via gosu (mirrors upstream entrypoint) ───
@@ -61,6 +70,10 @@ done
 [ ! -f "$HERMES_HOME/config.yaml" ] && cp "$INSTALL_DIR/cli-config.yaml.example" "$HERMES_HOME/config.yaml"
 [ ! -f "$HERMES_HOME/SOUL.md" ] && cp "$INSTALL_DIR/docker/SOUL.md" "$HERMES_HOME/SOUL.md"
 
+if [ -f "$INSTALL_DIR/patches/patch_chrome_devtools_ws_auth.py" ]; then
+    python3 "$INSTALL_DIR/patches/patch_chrome_devtools_ws_auth.py" 2>&1 | sed 's/^/[entrypoint] /'
+fi
+
 # Sync bundled skills (manifest-based, preserves user edits)
 if [ -d "$INSTALL_DIR/skills" ]; then
     python3 "$INSTALL_DIR/tools/skills_sync.py"
@@ -70,7 +83,7 @@ fi
 if [ "${HERMES_DASHBOARD_ENABLED:-true}" = "true" ]; then
     DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-9119}"
     echo "[entrypoint] Starting dashboard on port ${DASHBOARD_PORT}"
-    hermes dashboard --host 0.0.0.0 --port "${DASHBOARD_PORT}" --no-open 2>&1 | sed 's/^/[dashboard] /' &
+    hermes dashboard --host 0.0.0.0 --port "${DASHBOARD_PORT}" --no-open --insecure 2>&1 | sed 's/^/[dashboard] /' &
 fi
 
 # ─── Start profile gateways in background ────────────────────────

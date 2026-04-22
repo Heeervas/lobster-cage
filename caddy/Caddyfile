@@ -37,21 +37,8 @@
     }
 
     route {
-        @debugger_router path /debugger/router.js
-        handle @debugger_router {
-            rewrite * /router.js
-            root * /srv/browserless-debugger
-            file_server
-        }
-
-        handle {
-            reverse_proxy http://browserless:3000 {
-                header_up Authorization "Bearer {$BROWSERLESS_TOKEN}"
-                header_up Host {host}
-                header_up X-Forwarded-Host {host}
-                header_up X-Forwarded-Proto {scheme}
-            }
-        }
+        uri query token "{$BROWSERLESS_TOKEN}"
+        reverse_proxy http://browserless:3000
     }
 }
 

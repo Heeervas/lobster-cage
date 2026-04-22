@@ -133,10 +133,13 @@ RUN mkdir -p /opt/data/.config/pip \
 COPY entrypoint-wrapper.sh /opt/hermes/entrypoint-wrapper.sh
 RUN chmod +x /opt/hermes/entrypoint-wrapper.sh
 
-# Build-time patches for upstream telegram.py (survives base image updates)
+# Build-time patches for upstream Hermes files (survive base image updates)
 COPY patches/ /opt/hermes/patches/
 RUN python3 /opt/hermes/patches/patch_prompt_load_callback.py
 RUN python3 /opt/hermes/patches/patch_api_server_port_autoincrement.py
+RUN python3 /opt/hermes/patches/patch_checkpoint_rollback_scan.py
+RUN python3 /opt/hermes/patches/patch_mcp_proxy_env.py
+RUN python3 /opt/hermes/patches/patch_mcp_stdio_preamble_filter.py
 
 # NOTE: No USER directive — the container starts as root so the base entrypoint
 # can remap UID/GID via HERMES_UID/HERMES_GID and chown the data volume,

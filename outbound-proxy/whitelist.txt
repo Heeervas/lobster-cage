@@ -32,7 +32,9 @@ hermes-agent.nousresearch.com
 nousresearch.com
 
 # Internal services (accessed by Browserless browser on behalf of Hermes)
+# Note: hermes_agent/_agent suffix is also the container_name alias on Docker DNS
 hermes
+hermes_agent
 
 # Anthropic
 api.anthropic.com
@@ -245,6 +247,7 @@ muycomputer.com
 elconfidencial.com
 publico.es
 20minutos.es
+eleconomista.es
 
 # ──────────────────────────────────────────────────────────
 # NOTICIAS — LATAM
@@ -550,6 +553,19 @@ getyourguide.es
 m.autodoc.es
 mergullocompostela.com
 secretescapes.com
+kiwi.com
+kayak.com
+kayak.es
+skyscanner.net
+skyscanner.es
+booking.com
+booking.es
+airbnb.es
+airbnb.com
+google.com
+api.skypicker.com
+pubsub-proxy.skypicker.com
+plexus-prod.skypicker.com
 
 # ──────────────────────────────────────────────────────────
 # PRODUCTIVIDAD & HERRAMIENTAS PERSONALES

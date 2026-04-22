@@ -158,14 +158,27 @@ services:
       # Agent behavior
       - HERMES_MAX_ITERATIONS=${HERMES_MAX_ITERATIONS:-90}
 
+      # Gateway token (used by profile .env files via ${HERMES_GATEWAY_TOKEN})
+      - HERMES_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+
       # LLM Provider — ClawRoute as OpenAI-compatible endpoint
       - OPENAI_BASE_URL=http://clawroute:18790/v1
       - OPENAI_API_KEY=${CLAWROUTE_TOKEN}
       # Named custom provider key (config.yaml custom_providers[custom-1].api_key_env)
       - CUSTOM_1_API_KEY=${CLAWROUTE_TOKEN}
+      # Expose the raw Browserless token so per-profile .env files can expand
+      # BROWSER_CDP_URL when HERMES_HOME points at /opt/data/profiles/<name>.
+      - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN}
 
       # Browserless CDP
-      - BROWSER_CDP_URL=http://browserless:3000
+      # ws:// is required: http:// causes browser_tool.py to construct a malformed
+      # /json/version URL (query string gets corrupted), fall back to the raw HTTP URL,
+      # and pass it to agent-browser --cdp which cannot connect. With ws://, the
+      # _resolve_cdp_override function returns the URL directly (skips discovery).
+      # Use Browserless's managed /chromium websocket so Browserless applies
+      # stealth/headed launch options itself and the session appears in
+      # /sessions and the external debugger as a real managed browser.
+      - BROWSER_CDP_URL=ws://browserless:3000/chromium?token=${BROWSERLESS_TOKEN}&stealth=true&launch=%7B%22headless%22%3Afalse%7D
 
       # Node.js preload: CDP endpoint rewriting for Docker networking
       - NODE_OPTIONS=--require=/opt/hermes/bootstrap/cdp-patch.js
@@ -215,6 +228,10 @@ services:
       - ${GOGCLI_DATA_PATH:-./gogcli}:/opt/data/.config/gogcli:Z
       # Proxy whitelist (read-only — agent cannot modify proxy rules)
       - ./outbound-proxy/whitelist.txt:/etc/proxy-whitelist.txt:ro
+      # Hermes patch scripts (bind-mount so stdio/runtime fixes survive restarts)
+      - ./hermes/patches:/opt/hermes/patches:ro
+      # Entrypoint wrapper (bind-mount so fixes apply without image rebuild)
+      - ./hermes/entrypoint-wrapper.sh:/opt/hermes/entrypoint-wrapper.sh:ro
     networks:
       - openclaw_internal
     # Security: agent ONLY on internal network – no direct internet access.
@@ -241,6 +258,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_CODEX_AUTH_PATH=${OPENAI_CODEX_AUTH_PATH:-/app/codex-auth.json}
+      - OPENAI_CODEX_AUTH_PATHS=${OPENAI_CODEX_AUTH_PATHS:-}
+      - CODEX_ROTATION_INTERVAL_HOURS=${CODEX_ROTATION_INTERVAL_HOURS:-2}
+      - CODEX_ROTATION_IDLE_MINUTES=${CODEX_ROTATION_IDLE_MINUTES:-30}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       # Route remote API calls through Tinyproxy (all API domains are whitelisted)
@@ -272,7 +292,7 @@ services:
       # Mount host codex auth.json for subscription access (read-only).
       # ClawRoute reads this at startup to get the OAuth token.
       # After `codex login` refreshes the file, just `docker compose restart clawroute`.
-      - ${HOME}/.codex/auth.json:/app/codex-auth.json:ro
+      - ${HOME}/.codex:/.codex:ro
 
   # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
   # ollama:
@@ -329,19 +349,27 @@ services:
     dns:
       - 172.28.0.253
     environment:
+      - TOKEN=${BROWSERLESS_TOKEN}
+      - EXTERNAL=https://localhost:3005
       # Browserless UI behavior
       - ENABLE_DEBUGGER=true
+      # Keep CDP sessions alive long enough to inspect them in the debugger UI.
+      - TIMEOUT=300000
       - SCREEN_WIDTH=1280
       - SCREEN_HEIGHT=720
-      # Chromium proxy flag — routes ALL browser traffic through Tinyproxy whitelist
-      - DEFAULT_LAUNCH_ARGS=--proxy-server=http://proxy:8888 --disable-crash-reporter --no-crashpad
+      # Chromium proxy flag — routes outbound browser traffic through Tinyproxy whitelist.
+      # --proxy-bypass-list=<local> skips the proxy for all single-label Docker hostnames
+      # (hermes_agent, hermes, clawroute, searxng, etc.) so internal services are reached
+      # directly without Tinyproxy trying to forward them as external upstream targets.
+      # 172.28.0.0/24 covers any direct-IP access to internal services.
+      - DEFAULT_LAUNCH_ARGS=--proxy-server=http://proxy:8888 --proxy-bypass-list=<local>;127.0.0.1;172.28.0.0/24 --disable-crash-reporter --no-crashpad
       # Standard proxy env vars (container-level HTTP, e.g. healthchecks)
       - http_proxy=http://proxy:8888
       - https_proxy=http://proxy:8888
       - HTTP_PROXY=http://proxy:8888
       - HTTPS_PROXY=http://proxy:8888
-      - NO_PROXY=localhost,127.0.0.1,::1,browserless,hermes,proxy,caddy,searxng,reader,clawroute
-      - no_proxy=localhost,127.0.0.1,::1,browserless,hermes,proxy,caddy,searxng,reader,clawroute
+      - NO_PROXY=localhost,127.0.0.1,::1,browserless,hermes,hermes_agent,proxy,caddy,searxng,reader,clawroute
+      - no_proxy=localhost,127.0.0.1,::1,browserless,hermes,hermes_agent,proxy,caddy,searxng,reader,clawroute
     networks:
       - openclaw_internal
     # Security: browserless ONLY on internal network — no direct internet.
@@ -352,7 +380,7 @@ services:
       dns:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/json/version || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/json/version?token=$$TOKEN || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -381,10 +409,12 @@ services:
       - caddy/caddy.env
     environment:
       - CADDY_AUTH_USER=${CADDY_AUTH_USER:-admin}
+      - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN}
       - OPENCLAW_PORT=${OPENCLAW_PORT:-18789}
       - CLAWROUTE_PORT=${CLAWROUTE_PORT:-18790}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/browserless-debugger-router.js:/srv/browserless-debugger/router.js:ro
       - ./caddy/portal.html:/srv/portal.html:ro
       - ./certs:/certs:ro
     networks:

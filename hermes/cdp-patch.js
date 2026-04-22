@@ -2,11 +2,17 @@
 // Loaded via NODE_OPTIONS=--require=/opt/hermes/bootstrap/cdp-patch.js
 //
 // Problem: browserless /json/version returns webSocketDebuggerUrl: ws://0.0.0.0:3000/
-// which is unreachable from other Docker containers on the internal network.
+// (no token, wrong host) — unreachable from other Docker containers.
 //
-// Fix: Intercept Playwright's chromium.connectOverCDP() and rewrite any
-// 0.0.0.0 / localhost / 127.0.0.1 endpoint URL to use the host from
-// BROWSER_CDP_URL (e.g. http://browserless:3000).
+// Preferred config: BROWSER_CDP_URL=ws://browserless:3000?token=<TOKEN>
+// With ws://, browser_tool.py's _resolve_cdp_override returns the URL directly
+// (skips the broken HTTP /json/version discovery) and agent-browser connects
+// via WebSocket with the token already in the URL.
+//
+// This patch is a safety net for any Playwright code that still goes through
+// connectOverCDP() with an http:// URL or receives a raw webSocketDebuggerUrl.
+// It rewrites 0.0.0.0/localhost endpoints to use the host from BROWSER_CDP_URL
+// AND copies the token query param so Browserless accepts the WS connection.
 
 'use strict';
 
@@ -25,7 +31,8 @@ try {
 
 /**
  * Rewrite a WebSocket/HTTP endpoint URL, replacing local-only hostnames
- * with the configured BROWSER_CDP_URL host while preserving path/query.
+ * with the configured BROWSER_CDP_URL host while preserving path/query,
+ * and copying the token query param from BROWSER_CDP_URL if not already set.
  */
 function rewriteEndpoint(endpoint) {
   try {
@@ -40,6 +47,11 @@ function rewriteEndpoint(endpoint) {
     }
     parsed.hostname = baseUrl.hostname;
     parsed.port = baseUrl.port;
+
+    // Copy token from BROWSER_CDP_URL if the endpoint doesn't already have one
+    if (baseUrl.searchParams.has('token') && !parsed.searchParams.has('token')) {
+      parsed.searchParams.set('token', baseUrl.searchParams.get('token'));
+    }
 
     const rewritten = parsed.toString();
     console.error(`[cdp-patch] Rewrote CDP endpoint: ${endpoint} → ${rewritten}`);

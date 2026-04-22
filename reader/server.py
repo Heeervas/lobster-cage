@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import signal
+import socket
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -26,6 +27,13 @@ MAX_RESPONSE_SIZE = 2 * 1024 * 1024  # 2 MB max download
 MAX_TEXT_LENGTH = 100_000              # 100k chars max response
 LISTEN_PORT = int(os.environ.get("READER_PORT", "3000"))
 REQUEST_TIMEOUT = int(os.environ.get("READER_TIMEOUT", "15"))
+
+# Internal Docker service names (prevent SSRF to internal services)
+BLOCKED_HOSTNAMES = {
+    "hermes", "clawroute", "searxng", "browserless",
+    "reader", "proxy", "caddy", "ollama", "dns",
+    "openclaw",  # legacy agent name
+}
 
 # Blocked destinations (internal networks / metadata endpoints)
 BLOCKED_PATTERNS = [
@@ -92,6 +100,24 @@ def is_blocked(url: str) -> bool:
     for pattern in BLOCKED_PATTERNS:
         if re.match(pattern, url, re.IGNORECASE):
             return True
+
+    # Block internal Docker service hostnames
+    parsed = urllib.parse.urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    if hostname in BLOCKED_HOSTNAMES:
+        return True
+
+    # Resolve hostname and check if it maps to a blocked IP
+    if hostname:
+        try:
+            resolved_ip = socket.getaddrinfo(hostname, None)[0][4][0]
+            resolved_url = f"http://{resolved_ip}/"
+            for pattern in BLOCKED_PATTERNS:
+                if re.match(pattern, resolved_url, re.IGNORECASE):
+                    return True
+        except socket.gaierror:
+            pass
+
     return False
 
 

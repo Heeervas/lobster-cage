@@ -82,15 +82,22 @@ try:
         _cdp_base_parsed = _urlparse_cdp(_CDP_BASE)
 
     def _rewrite_cdp_ws(ws_url):
-        """Rewrite ws://0.0.0.0:… → ws://browserless:… using BROWSER_CDP_URL."""
+        """Rewrite ws://0.0.0.0:… → ws://browserless:… using BROWSER_CDP_URL.
+        Also copies the token query param from BROWSER_CDP_URL if not present."""
         if not ws_url or not _cdp_base_parsed:
             return ws_url
-        from urllib.parse import urlparse, urlunparse
+        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
         parsed = urlparse(ws_url)
         if parsed.hostname not in _CDP_LOCAL_HOSTS:
             return ws_url
         netloc = f'{_cdp_base_parsed.hostname}:{_cdp_base_parsed.port}' if _cdp_base_parsed.port else _cdp_base_parsed.hostname
-        rewritten = urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+        # Merge token from BROWSER_CDP_URL into the rewritten URL
+        base_params = parse_qs(_cdp_base_parsed.query)
+        ws_params = parse_qs(parsed.query)
+        if 'token' in base_params and 'token' not in ws_params:
+            ws_params['token'] = base_params['token']
+        new_query = urlencode({k: v[0] for k, v in ws_params.items()})
+        rewritten = urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, new_query, parsed.fragment))
         _audit_log('CDP-REWRITE', 'WS', rewritten, f'(was: {ws_url})')
         return rewritten
 
