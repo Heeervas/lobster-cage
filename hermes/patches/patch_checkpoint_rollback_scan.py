@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Build-time patcher: fix /rollback to scan all checkpoint repos.
 
-The /rollback command resolves the working directory via
-``os.getenv("MESSAGING_CWD", str(Path.home()))`` which in Docker evaluates
-to /opt/data (HERMES_HOME).  However, the checkpoint manager creates shadow
-repos keyed by the *project root* (found by walking up from the file being
-modified), e.g. /opt/data/workspace/brain/obsidian-openclaw.
+The /rollback command resolves a single working directory from the gateway
+environment, which in Docker often falls back to /opt/data (HERMES_HOME).
+However, the checkpoint manager creates shadow repos keyed by the *project
+root* (found by walking up from the file being modified), e.g.
+/opt/data/workspace/brain/obsidian-openclaw.
 
 This mismatch means /rollback always reports "No checkpoints found" because
 no checkpoints were ever created for /opt/data itself.
@@ -106,43 +106,16 @@ GW_TARGET = Path("/opt/hermes/gateway/run.py")
 # CheckpointManager instantiation.
 
 GW_MARKER = "# --- Checkpoint rollback scan fallback (lobster-cage patch) ---"
-
-# We find the original block and replace it with a version that falls back
-# to scanning all repos.
-GW_OLD = '''        cwd = os.getenv("MESSAGING_CWD", str(Path.home()))
-        arg = event.get_command_args().strip()
-
-        if not arg:
-            checkpoints = mgr.list_checkpoints(cwd)
-            return format_checkpoint_list(checkpoints, cwd)
-
-        # Restore by number or hash
-        checkpoints = mgr.list_checkpoints(cwd)
-        if not checkpoints:
-            return f"No checkpoints found for {cwd}"
-
-        target_hash = None
-        try:
-            idx = int(arg) - 1
-            if 0 <= idx < len(checkpoints):
-                target_hash = checkpoints[idx]["hash"]
-            else:
-                return f"Invalid checkpoint number. Use 1-{len(checkpoints)}."
-        except ValueError:
-            target_hash = arg
-
-        result = mgr.restore(cwd, target_hash)
-        if result["success"]:
-            return (
-                f"✅ Restored to checkpoint {result['restored_to']}: {result['reason']}\\n"
-                f"A pre-rollback snapshot was saved automatically."
-            )
-        return f"❌ {result['error']}"'''
+GW_START_CANDIDATES = (
+    '        cwd = os.getenv("TERMINAL_CWD", str(Path.home()))',
+    '        cwd = os.getenv("MESSAGING_CWD", str(Path.home()))',
+)
+GW_END = '        return f"❌ {result[\'error\']}"'
 
 GW_NEW = '''        # --- Checkpoint rollback scan fallback (lobster-cage patch) ---
         from tools.checkpoint_manager import list_all_checkpoint_dirs, format_all_checkpoints_list
 
-        cwd = os.getenv("MESSAGING_CWD", str(Path.home()))
+        cwd = os.getenv("TERMINAL_CWD") or os.getenv("MESSAGING_CWD", str(Path.home()))
         arg = event.get_command_args().strip()
 
         # Try primary CWD first; if empty, scan all checkpoint repos
@@ -489,7 +462,13 @@ def patch_gateway() -> None:
         print(f"SKIP: {GW_TARGET.name} already contains rollback scan patch")
         return
 
-    if GW_OLD not in source:
+    start_idx = -1
+    for candidate in GW_START_CANDIDATES:
+        start_idx = source.find(candidate)
+        if start_idx != -1:
+            break
+
+    if start_idx == -1:
         print(
             f"FATAL: anchor block not found in {GW_TARGET}:\n"
             "The upstream _handle_rollback_command likely changed. Update the patcher.",
@@ -497,7 +476,16 @@ def patch_gateway() -> None:
         )
         sys.exit(1)
 
-    patched = source.replace(GW_OLD, GW_NEW, 1)
+    end_idx = source.find(GW_END, start_idx)
+    if end_idx == -1:
+        print(
+            f"FATAL: rollback handler end marker not found in {GW_TARGET}:\n"
+            "The upstream _handle_rollback_command likely changed. Update the patcher.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    patched = source[:start_idx] + GW_NEW + source[end_idx + len(GW_END):]
     GW_TARGET.write_text(patched, encoding="utf-8")
     print(f"OK: rollback scan fallback applied to {GW_TARGET}")
 

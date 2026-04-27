@@ -157,6 +157,8 @@ services:
 
       # Agent behavior
       - HERMES_MAX_ITERATIONS=${HERMES_MAX_ITERATIONS:-90}
+      - HERMES_DUMP_REQUESTS=${HERMES_DUMP_REQUESTS:-false}
+      - HERMES_DUMP_REQUEST_STDOUT=${HERMES_DUMP_REQUEST_STDOUT:-false}
 
       # Gateway token (used by profile .env files via ${HERMES_GATEWAY_TOKEN})
       - HERMES_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
@@ -228,6 +230,8 @@ services:
       - ${GOGCLI_DATA_PATH:-./gogcli}:/opt/data/.config/gogcli:Z
       # Proxy whitelist (read-only — agent cannot modify proxy rules)
       - ./outbound-proxy/whitelist.txt:/etc/proxy-whitelist.txt:ro
+      # Runtime Python proxy bootstrap (bind-mount so NO_PROXY fixes apply without rebuild)
+      - ./hermes/proxy-bootstrap.py:/opt/hermes/bootstrap/sitecustomize.py:ro
       # Hermes patch scripts (bind-mount so stdio/runtime fixes survive restarts)
       - ./hermes/patches:/opt/hermes/patches:ro
       # Entrypoint wrapper (bind-mount so fixes apply without image rebuild)

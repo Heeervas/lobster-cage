@@ -44,6 +44,17 @@ def _audit_log(route, method, url, extra=''):
     safe_url = _redact_url(url[:200] + '…' if len(url) > 200 else url)
     print(f'[proxy-audit] {ts} {route} {method} {safe_url} {extra}', file=sys.stderr)
 
+def _should_bypass_explicit_proxy(url):
+    from urllib.parse import urlparse
+    host = (urlparse(url).hostname or '').strip('[]').lower()
+    raw = os.environ.get('NO_PROXY') or os.environ.get('no_proxy') or ''
+    if not host or not raw:
+        return False
+    for entry in (part.strip().lower().lstrip('.') for part in raw.split(',') if part.strip()):
+        if entry == '*' or host == entry or host.endswith(f'.{entry}'):
+            return True
+    return False
+
 # --- Monkey-patch urllib.request.urlopen ---
 try:
     import urllib.request
@@ -142,6 +153,20 @@ except ImportError:
 try:
     import httpx
     _orig_httpx_send = httpx.Client.send
+    _DIRECT_HTTPX_CLIENT = None
+    _DIRECT_HTTPX_ASYNC_CLIENT = None
+
+    def _get_direct_httpx_client():
+        global _DIRECT_HTTPX_CLIENT
+        if _DIRECT_HTTPX_CLIENT is None:
+            _DIRECT_HTTPX_CLIENT = httpx.Client(trust_env=False)
+        return _DIRECT_HTTPX_CLIENT
+
+    def _get_direct_httpx_async_client():
+        global _DIRECT_HTTPX_ASYNC_CLIENT
+        if _DIRECT_HTTPX_ASYNC_CLIENT is None:
+            _DIRECT_HTTPX_ASYNC_CLIENT = httpx.AsyncClient(trust_env=False)
+        return _DIRECT_HTTPX_ASYNC_CLIENT
 
     def _patched_httpx_send(self, request, **kwargs):
         url = str(request.url)
@@ -156,6 +181,9 @@ try:
                 if k.lower() != 'x-subscription-token'
             })
             _audit_log('BRAVE→SEARXNG', request.method, str(request.url))
+        elif _should_bypass_explicit_proxy(url):
+            _audit_log('HTTPX-DIRECT', request.method, url)
+            return _orig_httpx_send(_get_direct_httpx_client(), request, **kwargs)
         else:
             _audit_log('HTTPX', request.method, url)
         return _orig_httpx_send(self, request, **kwargs)
@@ -178,6 +206,9 @@ try:
                 if k.lower() != 'x-subscription-token'
             })
             _audit_log('BRAVE→SEARXNG', request.method, str(request.url))
+        elif _should_bypass_explicit_proxy(url):
+            _audit_log('HTTPX-ASYNC-DIRECT', request.method, url)
+            return await _orig_httpx_async_send(_get_direct_httpx_async_client(), request, **kwargs)
         else:
             _audit_log('HTTPX-ASYNC', request.method, url)
         return await _orig_httpx_async_send(self, request, **kwargs)

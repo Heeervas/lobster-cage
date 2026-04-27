@@ -1,4 +1,6 @@
-FROM nousresearch/hermes-agent:latest
+FROM nousresearch/hermes-agent:v2026.4.23
+
+USER root
 
 # Make venv available to all processes (docker exec, cron, etc.)
 ENV PATH="/opt/hermes/.venv/bin:$PATH"
@@ -6,8 +8,6 @@ ENV PATH="/opt/hermes/.venv/bin:$PATH"
 # Ensure venv PATH survives login shells (bash -l, su -, SSH, sh)
 # /etc/profile.d/ is sourced by both bash and sh login shells
 RUN echo 'export PATH="/opt/hermes/.venv/bin:$PATH"' > /etc/profile.d/hermes-venv.sh
-
-USER root
 
 # CLI-Toolbox: Network, System, Dev, Data Processing, Media
 # (matches OpenClaw's toolbox minus packages the base image already includes)
@@ -74,7 +74,8 @@ RUN uv pip install --python /opt/hermes/.venv/bin/python \
     PySocks \
     google-api-python-client \
     google-auth-oauthlib \
-    google-auth-httplib2
+    google-auth-httplib2 \
+    obsidiantools
 
 # hermes-web-search-plus plugin (SearXNG support)
 # Cloned to /opt/hermes-plugins/ at build time;

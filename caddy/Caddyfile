@@ -1,9 +1,6 @@
-# Caddyfile.hermes — Reverse proxy config for Hermes Agent
-# Mounted automatically via docker-compose.hermes.yml
-# Differences from default Caddyfile:
-#   - Main proxy → hermes:8642 (Hermes API Server) instead of openclaw:18789
-#   - No /go redirect (OpenClaw-specific device token pairing)
-#   - No :3417 tool proxy (OpenClaw-specific)
+# Active Caddyfile for the default Hermes stack.
+# Mounted automatically by lobster-cage/docker-compose.yml.
+# OpenClaw keeps its own override in caddy/Caddyfile.openclaw.
 
 :{$OPENCLAW_PORT:18789} {
     tls /certs/cert.pem /certs/key.pem
@@ -29,6 +26,9 @@
 :3005 {
     tls /certs/cert.pem /certs/key.pem
 
+    # Protect HTTP requests with basic auth.
+    # WebSocket connections (live screen stream) bypass auth because
+    # browsers do not reliably send basic-auth headers on WS upgrades.
     @not_websocket {
         not header Connection *Upgrade*
     }
@@ -37,10 +37,24 @@
     }
 
     route {
-        uri query token "{$BROWSERLESS_TOKEN}"
-        reverse_proxy http://browserless:3000
+        # Serve the patched router locally so the debugger keeps the same
+        # session filtering behavior as the OpenClaw variant.
+        @debugger_router path /debugger/router.js
+        handle @debugger_router {
+            rewrite * /router.js
+            root * /srv/browserless-debugger
+            file_server
+        }
+
+        handle {
+            reverse_proxy http://browserless:3000 {
+                header_up Authorization "Bearer {$BROWSERLESS_TOKEN}"
+                header_up Host {host}
+            }
+        }
     }
 }
+
 
 # ClawRoute dashboard
 :{$CLAWROUTE_PORT:18790} {
