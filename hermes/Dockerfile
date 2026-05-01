@@ -1,4 +1,4 @@
-FROM nousresearch/hermes-agent:v2026.4.23
+FROM nousresearch/hermes-agent:v2026.4.30
 
 USER root
 
@@ -61,27 +61,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN echo 'Acquire::http::Proxy "http://proxy:8888";' > /etc/apt/apt.conf.d/99proxy \
     && echo 'Acquire::https::Proxy "http://proxy:8888";' >> /etc/apt/apt.conf.d/99proxy
 
-# Pre-installed Python packages into the upstream venv (v0.9.0+ uses .venv, not system Python)
-RUN uv pip install --python /opt/hermes/.venv/bin/python \
+# Only add packages not already bundled by upstream `.[all]`.
+RUN uv pip install --no-cache-dir --python /opt/hermes/.venv/bin/python \
     python-docx \
     pymupdf \
-    numpy \
     pandas \
     matplotlib \
-    requests \
     "yt-dlp[default]" \
     curl-cffi \
     PySocks \
-    google-api-python-client \
-    google-auth-oauthlib \
-    google-auth-httplib2 \
     obsidiantools
 
 # hermes-web-search-plus plugin (SearXNG support)
 # Cloned to /opt/hermes-plugins/ at build time;
 # entrypoint-wrapper copies to $HERMES_HOME/plugins/ on first boot
 RUN git clone --depth 1 https://github.com/robbyczgw-cla/hermes-web-search-plus.git \
-    /opt/hermes-plugins/web-search-plus
+    /opt/hermes-plugins/web-search-plus \
+    && rm -rf /opt/hermes-plugins/web-search-plus/.git
 
 # Proxy bootstrap Python (audit + Brave→SearXNG interception)
 # Loaded via PYTHONPATH=/opt/hermes/bootstrap → sitecustomize.py
@@ -114,12 +110,6 @@ RUN set -eux; \
     unzip /tmp/deno.zip -d /usr/local/bin; \
     rm /tmp/deno.zip; \
     chmod +x /usr/local/bin/deno
-
-# Build dashboard frontend (SPA → hermes_cli/web_dist/)
-# Pre-built at image time so the dashboard is instantly available on first boot.
-# Remove web/package.json after build so the runtime `hermes dashboard` command
-# skips the npm install/build step (which would fail behind the outbound proxy).
-RUN cd /opt/hermes/web && npm ci --prefer-offline && npm run build && rm -rf node_modules .cache package.json
 
 # UID remapping: the base entrypoint (v0.9.0+) handles this at runtime via gosu.
 # Set HERMES_UID/HERMES_GID in docker-compose to match host volume ownership.
