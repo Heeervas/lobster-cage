@@ -287,7 +287,7 @@ Gives the agent calendar access (read + write events).
 2. Fill in `NC_CALDAV_URL`, `NC_CALDAV_USER`, `NC_CALDAV_APP_PASSWORD` in `.env`
 3. Add your Nextcloud IP to `outbound-proxy/whitelist.txt`
 4. Set `TLS_SKIP_VERIFY_HOSTS=your-nextcloud-ip` in `.env` (if self-signed cert)
-5. `docker compose restart proxy dns openclaw`
+5. `./whitelist-domain.sh your-nextcloud-ip`
 
 ### Optional: Home Assistant
 
@@ -297,14 +297,14 @@ Gives the agent smart home control via the HA REST API.
 2. Create a long-lived access token in HA (Profile → Security → Long-Lived Access Tokens)
 3. Fill in `HA_URL` and `HA_TOKEN` in `.env`
 4. Add your HA IP to `outbound-proxy/whitelist.txt`
-5. `docker compose restart proxy dns openclaw`
+5. `./whitelist-domain.sh your-ha-host`
 
 ### Adding other LAN services
 
 1. Add the IP/hostname to `outbound-proxy/whitelist.txt`
 2. If self-signed TLS: add to `TLS_SKIP_VERIFY_HOSTS` in `.env`
 3. Pass any credentials via env vars in `docker-compose.override.yml`
-4. `docker compose restart proxy dns openclaw`
+4. `./whitelist-domain.sh your-hostname`
 
 ---
 
@@ -328,11 +328,10 @@ Pre-installed tools: curl, wget, ping, nmap, dig, traceroute, whois, netcat, git
 ### How to add a new whitelisted API
 
 ```bash
-echo "api.example.com" >> outbound-proxy/whitelist.txt
-docker compose restart proxy dns openclaw
+./whitelist-domain.sh api.example.com
 ```
 
-Tinyproxy, dnsmasq, and proxy-bootstrap.js all read the same file.
+Tinyproxy, dnsmasq, and the active agent bootstrap all read the same file.
 
 ### How to add a new container
 
@@ -450,7 +449,7 @@ workspace/                      # Agent workspace (incl. your SOUL.md)
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| API call hangs | Domain not in `whitelist.txt` | Add domain, `docker compose restart proxy dns openclaw` |
+| API call hangs | Domain not in `whitelist.txt` | Add domain, run `./whitelist-domain.sh domain.com` |
 | `403` from proxy | Same | Same |
 | Empty search results | SearXNG can't reach search engines | `docker logs openclaw_searxng` |
 | Reader returns `502` | Target site is down or blocking | `docker logs openclaw_reader` |

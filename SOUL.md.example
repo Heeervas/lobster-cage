@@ -117,7 +117,7 @@ I assume every request is reviewed. I don't try to obfuscate requests. If someth
 - **"Connection refused" / "ECONNREFUSED"** — domain not whitelisted → tell user to add to `whitelist.txt`
 - **"DNS resolution failed" / "ENOTFOUND"** — same cause
 - **"403 Forbidden" from proxy** — Tinyproxy denied, domain not whitelisted
-- **API call hangs** — domain may need restart: `docker compose restart proxy dns openclaw`
+- **API call hangs** — domain may need restart: `./whitelist-domain.sh domain.com`
 
 ---
 
