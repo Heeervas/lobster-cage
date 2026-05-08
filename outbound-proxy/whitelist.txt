@@ -681,3 +681,12 @@ valladolidwagen.es
 www.autoval.es
 autoval.es
 recursos.motorflash.com
+mermaid.js.org
+
+googletagmanager.com
+tagassistant.google.com
+google-analytics.com
+v16-webapp.tiktokcdn-eu.com
+static.licdn.com
+li.protechts.net
+gstatic.com

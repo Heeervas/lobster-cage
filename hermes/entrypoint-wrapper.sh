@@ -25,8 +25,8 @@ fi
 if [ -f "$INSTALL_DIR/patches/patch_mcp_stdio_preamble_filter.py" ]; then
     python3 "$INSTALL_DIR/patches/patch_mcp_stdio_preamble_filter.py" 2>&1 | sed 's/^/[entrypoint] /'
 fi
-if [ -f "$INSTALL_DIR/patches/patch_post_tool_empty_retry.py" ]; then
-    python3 "$INSTALL_DIR/patches/patch_post_tool_empty_retry.py" 2>&1 | sed 's/^/[entrypoint] /'
+if [ -f "$INSTALL_DIR/patches/patch_gateway_retryable_startup.py" ]; then
+    python3 "$INSTALL_DIR/patches/patch_gateway_retryable_startup.py" 2>&1 | sed 's/^/[entrypoint] /'
 fi
 
 # ─── Privilege dropping via gosu (mirrors upstream entrypoint) ───

@@ -1,13 +1,26 @@
-FROM nousresearch/hermes-agent:v2026.4.30
+FROM node:22-bookworm-slim AS node22
+
+FROM nousresearch/hermes-agent:v2026.5.7
 
 USER root
 
-# Make venv available to all processes (docker exec, cron, etc.)
+# Override the upstream base image's Debian-packaged Node 20 with Node 22.
+COPY --from=node22 /usr/local/bin/node /usr/local/bin/node
+COPY --from=node22 /usr/local/include/node /usr/local/include/node
+COPY --from=node22 /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
+
+# Keep the Hermes venv first; Node 22 resolves from /usr/local/bin via the
+# existing system PATH ahead of Debian's /usr/bin/node.
 ENV PATH="/opt/hermes/.venv/bin:$PATH"
 
 # Ensure venv PATH survives login shells (bash -l, su -, SSH, sh)
 # /etc/profile.d/ is sourced by both bash and sh login shells
-RUN echo 'export PATH="/opt/hermes/.venv/bin:$PATH"' > /etc/profile.d/hermes-venv.sh
+RUN echo 'export PATH="/opt/hermes/.venv/bin:$PATH"' > /etc/profile.d/hermes-venv.sh \
+    && node -v \
+    && npm -v
 
 # CLI-Toolbox: Network, System, Dev, Data Processing, Media
 # (matches OpenClaw's toolbox minus packages the base image already includes)
@@ -131,6 +144,7 @@ RUN python3 /opt/hermes/patches/patch_api_server_port_autoincrement.py
 RUN python3 /opt/hermes/patches/patch_checkpoint_rollback_scan.py
 RUN python3 /opt/hermes/patches/patch_mcp_proxy_env.py
 RUN python3 /opt/hermes/patches/patch_mcp_stdio_preamble_filter.py
+RUN python3 /opt/hermes/patches/patch_gateway_retryable_startup.py
 
 # NOTE: No USER directive — the container starts as root so the base entrypoint
 # can remap UID/GID via HERMES_UID/HERMES_GID and chown the data volume,

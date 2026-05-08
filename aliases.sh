@@ -4,6 +4,7 @@
 # source ~/repos/my-lobster/lobster-cage/aliases.sh
 
 CAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERMES_DATA_DIR="${HERMES_DATA_PATH:-$HOME/.custom_claw/hermes}"
 
 # ─── Hermes (default stack) ──────────────────────────────────────
 alias hermes-up="cd \"$CAGE_DIR\" && docker compose up -d"
@@ -17,6 +18,9 @@ alias hermes-doctor="docker exec -u hermes hermes_agent hermes doctor"
 alias hermes-profiles="docker exec -u hermes hermes_agent hermes profile list"
 alias hermes-coach-start="docker exec -d -u hermes hermes_agent hermes -p coach gateway run"
 alias hermes-coach-stop="docker exec -d -u hermes hermes_agent hermes -p coach gateway stop"
+alias hermes-cache-top="du -ah --max-depth=2 \"$HERMES_DATA_DIR/.cache\" \"$HERMES_DATA_DIR/.npm\" 2>/dev/null | sort -hr | head -n 20"
+alias hermes-cache-live="docker exec -u hermes hermes_agent sh -lc 'du -ah --max-depth=2 /opt/data/.cache /opt/data/.npm /home/hermes/.cache /home/hermes/.npm 2>/dev/null | sort -hr | head -n 20'"
+alias hermes-cache-clean="rm -rf \"$HERMES_DATA_DIR/.cache/huggingface\" \"$HERMES_DATA_DIR/.npm/_cacache\" \"$HERMES_DATA_DIR/.npm/_npx\"; find \"$HERMES_DATA_DIR/.npm/_logs\" -type f -delete 2>/dev/null; du -ah --max-depth=2 \"$HERMES_DATA_DIR/.cache\" \"$HERMES_DATA_DIR/.npm\" 2>/dev/null | sort -hr | head -n 20"
 alias hermes-dashboard="echo 'https://localhost:9119'"
 
 # ─── OpenClaw (via override file) ────────────────────────────────
@@ -43,4 +47,9 @@ alias cage-status="cd \"$CAGE_DIR\" && docker compose ps"
 alias cage-logs="cd \"$CAGE_DIR\" && docker compose logs -f"
 alias cage-restart="cd \"$CAGE_DIR\" && docker compose restart"
 alias cage-cleanup="docker image prune -f && docker builder prune -f"
+alias cage-apt-clean="sudo apt clean && sudo apt autoremove -y"
+alias cage-snap-clean-disabled="bash -lc 'snap list --all | awk '\''/disabled/{print \$1, \$3}'\'' | while read -r snapname revision; do sudo snap remove \"\$snapname\" --revision=\"\$revision\"; done'"
+alias cage-snap-retain-2="sudo snap set system refresh.retain=2 && snap get system refresh.retain"
+alias cage-apport-clean="sudo find /var/lib/apport -type f \\( -name '*.crash' -o -name '*.upload' -o -name '*.uploaded' \\) -delete && du -ah --max-depth=2 /var/lib/apport 2>/dev/null | sort -hr | head -n 20"
+alias cage-varlib-top="du -ah --max-depth=1 /var/lib 2>/dev/null | sort -hr | head -n 5"
 alias cage-disk="docker system df && echo '---' && df -h /home"

@@ -127,6 +127,10 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 2g
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
     # Run in gateway mode (Telegram + API server), not interactive REPL
     command: ["gateway", "run"]
     healthcheck:
@@ -208,9 +212,11 @@ services:
       - TELEGRAM_ALLOWED_USERS=${HERMES_TELEGRAM_ALLOWED_USERS}
       - TELEGRAM_BOT_TOKEN_COACH=${HERMES_TELEGRAM_BOT_TOKEN_COACH}
       - TELEGRAM_ALLOWED_USERS_COACH=${HERMES_TELEGRAM_ALLOWED_USERS_COACH}
+      - TELEGRAM_BOT_TOKEN_WORK=${HERMES_TELEGRAM_BOT_TOKEN_WORK}
+      - TELEGRAM_ALLOWED_USERS_WORK=${HERMES_TELEGRAM_ALLOWED_USERS_WORK}
 
       # Profile auto-start (comma-separated list of profiles to run alongside default)
-      - HERMES_AUTOSTART_PROFILES=${HERMES_AUTOSTART_PROFILES:-coach}
+      - HERMES_AUTOSTART_PROFILES=${HERMES_AUTOSTART_PROFILES:-}
 
       # GitHub
       - GITHUB_TOKEN=${GITHUB_TOKEN}
@@ -293,10 +299,13 @@ services:
       #   condition: service_healthy
     volumes:
       - ${CLAWROUTE_DATA_PATH:-./clawroute_data}:/app/data
+      - ../ClawRoute/config:/app/config
       # Mount host codex auth.json for subscription access (read-only).
       # ClawRoute reads this at startup to get the OAuth token.
       # After `codex login` refreshes the file, just `docker compose restart clawroute`.
       - ${HOME}/.codex:/.codex:ro
+      - ${HOME}/.codex_piti:/.codex_piti:ro
+      - ${HOME}/.codex_ah18:/.codex_ah18:ro
 
   # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
   # ollama:
@@ -416,6 +425,7 @@ services:
       - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN}
       - OPENCLAW_PORT=${OPENCLAW_PORT:-18789}
       - CLAWROUTE_PORT=${CLAWROUTE_PORT:-18790}
+      - CLAWROUTE_TOKEN=${CLAWROUTE_TOKEN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy/browserless-debugger-router.js:/srv/browserless-debugger/router.js:ro
