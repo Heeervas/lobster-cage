@@ -301,11 +301,12 @@ services:
       - ${CLAWROUTE_DATA_PATH:-./clawroute_data}:/app/data
       - ../ClawRoute/config:/app/config
       # Mount host codex auth.json for subscription access (read-only).
-      # ClawRoute reads this at startup to get the OAuth token.
-      # After `codex login` refreshes the file, just `docker compose restart clawroute`.
+      # ClawRoute can retry other slots on upstream auth expiry and reload refreshed
+      # auth files on later requests without a process restart.
       - ${HOME}/.codex:/.codex:ro
       - ${HOME}/.codex_piti:/.codex_piti:ro
       - ${HOME}/.codex_ah18:/.codex_ah18:ro
+      - ${HOME}/.codex_milo:/.codex_milo:ro
 
   # # 7. Ollama – local LLM inference (CPU-only; explicit model routing via ClawRoute)
   # ollama:
